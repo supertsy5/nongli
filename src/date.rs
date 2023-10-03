@@ -273,7 +273,7 @@ impl Date {
 
 impl Display for Date {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}-{}-{}", self.year, self.month.as_number(), self.day)
+        write!(f, "{}-{:02}-{:02}", self.year, self.month.as_number(), self.day)
     }
 }
 
