@@ -1,3 +1,7 @@
+use std::fmt::{
+    Display, Formatter, Result as FmtResult, Debug,
+};
+
 use Day::*;
 use Month::*;
 
@@ -95,6 +99,12 @@ impl Month {
     }
 }
 
+impl Display for Month {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Debug::fmt(self, f)
+    }
+}
+
 impl Day {
     pub fn from_number(number: u8) -> Option<Day> {
         if number == 7 {
@@ -106,8 +116,14 @@ impl Day {
     pub fn as_number(self) -> u8 {
         self as u8
     }
-    pub fn offset(self, offset: i32) -> Day {
-        DAYS[(self as i32 + offset.rem_euclid(7)).rem_euclid(7) as usize]
+    pub fn offset(self, days: i32) -> Day {
+        DAYS[(self as i32 + days.rem_euclid(7)).rem_euclid(7) as usize]
+    }
+}
+
+impl Display for Day {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Debug::fmt(self, f)
     }
 }
 
@@ -135,6 +151,35 @@ impl Date {
                     .sum::<i32>(),
             )
             .offset(self.day as i32 - 1)
+    }
+    pub fn from_unix_epoch(mut days: u32) -> Self {
+        let mut year = 1970u16;
+        loop {
+            let days_of_this_year = days_of_year(year) as u32;
+            if days < days_of_this_year {
+                break;
+            }
+            days -= days_of_this_year;
+            year += 1;
+        }
+        let mut months = MONTHS.iter().copied();
+        let mut month;
+        loop {
+            month = months.next().unwrap();
+            let days_of_this_month = days_of_month(year, month) as u32;
+            if days < days_of_this_month {
+                break;
+            }
+            days -= days_of_this_month;
+            year += 1;
+        }
+        Self { year, month, day: days as u8 + 1 }
+    }
+}
+
+impl Display for Date {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}-{}-{}", self.year, self.month.as_number(), self.day)
     }
 }
 
