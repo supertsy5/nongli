@@ -1,3 +1,5 @@
 fn main() {
-    println!("{}", nongli::date::Date::today());
+    let time = chrono::Local::now();
+    println!("Date: {}", time.date_naive());
+    println!("Time: {}", time);
 }
