@@ -1,6 +1,4 @@
-use std::fmt::{
-    Display, Formatter, Result as FmtResult, Debug,
-};
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 use Day::*;
 use Month::*;
@@ -32,6 +30,13 @@ pub enum Month {
     December,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MonthRange(Month, Month);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DayRange(Day, Day);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Date {
     year: u16,
     month: Month,
@@ -97,6 +102,22 @@ impl Month {
     pub fn as_number(self) -> u8 {
         self as u8 + 1
     }
+    pub fn next(self) -> Month {
+        match self {
+            January => February,
+            February => March,
+            March => April,
+            April => May,
+            May => June,
+            June => July,
+            July => August,
+            August => September,
+            September => October,
+            October => November,
+            November => December,
+            December => January,
+        }
+    }
 }
 
 impl Display for Month {
@@ -119,11 +140,72 @@ impl Day {
     pub fn offset(self, days: i32) -> Day {
         DAYS[(self as i32 + days.rem_euclid(7)).rem_euclid(7) as usize]
     }
+    pub fn next(self) -> Self {
+        match self {
+            Sunday => Monday,
+            Monday => Tuesday,
+            Tuesday => Wednesday,
+            Wednesday => Thursday,
+            Thursday => Friday,
+            Friday => Saturday,
+            Saturday => Sunday,
+        }
+    }
 }
 
 impl Display for Day {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Debug::fmt(self, f)
+    }
+}
+
+impl MonthRange {
+    pub fn new(from: Month, to: Month) -> Self {
+        Self(from, to)
+    }
+    pub fn from(self) -> Month {
+        self.0
+    }
+    pub fn to(self) -> Month {
+        self.1
+    }
+}
+
+impl Iterator for MonthRange {
+    type Item = Month;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 != self.1 {
+            let output = self.0;
+            self.0 = self.0.next();
+            Some(output)
+        } else {
+            None
+        }
+    }
+}
+
+impl DayRange {
+    pub fn new(from: Day, to: Day) -> Self {
+        Self(from, to)
+    }
+    pub fn from(self) -> Day {
+        self.0
+    }
+    pub fn to(self) -> Day {
+        self.1
+    }
+}
+
+impl Iterator for DayRange {
+    type Item = Day;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 != self.1 {
+            let output = self.0;
+            self.0 = self.0.next();
+            Some(output)
+        } else {
+            None
+        }
     }
 }
 
@@ -140,18 +222,6 @@ impl Date {
     pub fn day(&self) -> u8 {
         self.day
     }
-    pub fn day_of_week(&self) -> Day {
-        DAY_OF_UNIX_EPOCH
-            .offset((1970..self.year).map(days_of_year).sum::<u16>() as i32)
-            .offset(
-                (1..self.month.as_number())
-                    .map(|month| {
-                        days_of_month(self.year, Month::from_number(month).unwrap()) as i32
-                    })
-                    .sum::<i32>(),
-            )
-            .offset(self.day as i32 - 1)
-    }
     pub fn from_unix_epoch(mut days: u32) -> Self {
         let mut year = 1970u16;
         loop {
@@ -162,18 +232,42 @@ impl Date {
             days -= days_of_this_year;
             year += 1;
         }
-        let mut months = MONTHS.iter().copied();
-        let mut month;
+        let mut month = January;
         loop {
-            month = months.next().unwrap();
             let days_of_this_month = days_of_month(year, month) as u32;
             if days < days_of_this_month {
                 break;
             }
             days -= days_of_this_month;
-            year += 1;
+            month = month.next();
         }
-        Self { year, month, day: days as u8 + 1 }
+        Self {
+            year,
+            month,
+            day: days as u8 + 1,
+        }
+    }
+    pub fn since_unix_epoch(self) -> u32 {
+        (1970..self.year)
+            .map(|year| days_of_year(year) as u32)
+            .sum::<u32>()
+            + MonthRange(January, self.month)
+                .map(|month| days_of_month(self.year, month) as u32)
+                .sum::<u32>()
+            + self.day as u32
+            - 1
+    }
+    pub fn day_of_week(self) -> Day {
+        DAY_OF_UNIX_EPOCH.offset(self.since_unix_epoch() as i32)
+    }
+    pub fn today() -> Self {
+        Self::from_unix_epoch(
+            (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                / 86400) as u32,
+        )
     }
 }
 
@@ -190,4 +284,11 @@ fn tests() {
     assert_eq!(Date::new(1970, February, 1).unwrap().day_of_week(), Sunday);
     assert_eq!(Date::new(1971, January, 1).unwrap().day_of_week(), Friday);
     assert_eq!(Date::new(2023, October, 3).unwrap().day_of_week(), Tuesday);
+    for date in [
+        Date::new(1970, February, 1).unwrap(),
+        Date::new(1971, January, 1).unwrap(),
+        Date::today(),
+    ] {
+        assert_eq!(Date::from_unix_epoch(date.since_unix_epoch()), date);
+    }
 }
