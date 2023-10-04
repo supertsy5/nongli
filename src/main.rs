@@ -1,36 +1,33 @@
 use std::io::IsTerminal;
 
-use anstyle::{Color, AnsiColor};
-use chrono::Datelike;
+use anstyle::{Color, AnsiColor, Style};
+use chrono::{Datelike, Weekday};
 
-const MONTHS: [&str; 12] = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-];
+pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 fn main() {
     let is_terminal = std::io::stdout().is_terminal();
-    let date = chrono::Local::now().date_naive();
-    println!("{:^28}", format_args!("{} {}", MONTHS[date.month() as usize], date.year()));
-    println!("Sun Mon Tue Wed Thu Fri Sat");
-    let spaces = date.with_day(1).unwrap().weekday().num_days_from_sunday();
+    let today = chrono::Local::now().date_naive();
+    println!("{:20}{:7}",
+        chrono::Month::try_from(today.month() as u8).unwrap().name(),
+        today.year(),
+    );
+    if is_terminal {
+        println!(
+            "{0}Sun{1} Mon Tue Wed Thu Fri {0}Sat{1}",
+            Style::new().fg_color(Some(WEEKEND_COLOR)).render(),
+            anstyle::Reset.render()
+        );
+    } else {
+        println!("Sun Mon Tue Wed Thu Fri Sat");
+    }
+    let spaces = today.with_day(1).unwrap().weekday().num_days_from_sunday();
     for _ in 0..spaces {
         print!("    ");
     }
-    let mut column = spaces;
-    let days = match date.month() {
+    let days = match today.month() {
         1 => 31,
-        2 => if date.leap_year() { 29 } else { 28 },
+        2 => if today.leap_year() { 29 } else { 28 },
         3 => 31,
         4 => 30,
         5 => 31,
@@ -44,27 +41,26 @@ fn main() {
         _ => unreachable!(),
     };
     for day in 1..=days {
-        if day == date.day() {
-            if is_terminal {
-                print!(
-                    "{} {day:^2} {}",
-                    anstyle::Style::new()
-                        .bg_color(Some(Color::Ansi(AnsiColor::BrightWhite)))
-                        .fg_color(Some(Color::Ansi(AnsiColor::Black)))
-                        .render(),
-                    anstyle::Reset.render(),
-                );
-            } else {
-                print!("[{day:^2}]");
+        let date = today.with_day(day).unwrap();
+        let mut style = Style::new();
+        if is_terminal {
+            let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
+            if is_weekend {
+                style = style.fg_color(Some(WEEKEND_COLOR));
             }
+            if day == today.day() {
+                style = style.invert();
+            }
+            print!("{} {day:2} {}", style.render(), style.render_reset());
         } else {
-            print!("{day:^4}");
+            if day == today.day() {
+                print!("[{day:2}]");
+            } else {
+                print!(" {day:2} ");
+            }
         }
-        if column == 6 {
+        if date.weekday() == Weekday::Sat {
             println!();
-            column = 0;
-        } else {
-            column += 1;
         }
     }
     println!();
