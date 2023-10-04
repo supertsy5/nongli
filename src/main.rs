@@ -47,7 +47,7 @@ fn main() {
         if day == date.day() {
             if is_terminal {
                 print!(
-                    " {}{day:^2}{} ",
+                    "{} {day:^2} {}",
                     anstyle::Style::new()
                         .bg_color(Some(Color::Ansi(AnsiColor::BrightWhite)))
                         .fg_color(Some(Color::Ansi(AnsiColor::Black)))
