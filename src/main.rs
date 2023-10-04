@@ -1,33 +1,56 @@
 use std::io::IsTerminal;
 
-use anstyle::{Color, AnsiColor, Style};
-use chrono::{Datelike, Weekday};
+use anstyle::{AnsiColor, Color, Style};
+use chrono::{Datelike, Month, Weekday};
+use nongli::language::{Language::*, ShortTranslate};
 
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 fn main() {
+    let language = if std::env::var("LANG").is_ok_and(|lang| lang.starts_with("zh")) {
+        Chinese
+    } else {
+        English
+    };
+    let start_of_week = Weekday::Sun;
     let is_terminal = std::io::stdout().is_terminal();
     let today = chrono::Local::now().date_naive();
-    println!("{:20}{:7}",
-        chrono::Month::try_from(today.month() as u8).unwrap().name(),
-        today.year(),
+    println!(
+        "{:^28}",
+        nongli::language::Title(
+            today.year(),
+            Month::try_from(today.month() as u8).unwrap(),
+            language
+        ).to_string()
     );
-    if is_terminal {
-        println!(
-            "{0}Sun{1} Mon Tue Wed Thu Fri {0}Sat{1}",
-            Style::new().fg_color(Some(WEEKEND_COLOR)).render(),
-            anstyle::Reset.render()
-        );
-    } else {
-        println!("Sun Mon Tue Wed Thu Fri Sat");
+    for weekday in nongli::iter::Weekdays(start_of_week).take(7) {
+        let mut style = Style::new();
+        if is_terminal && nongli::is_weekend(weekday) {
+            style = style.fg_color(Some(WEEKEND_COLOR));
+            print!("{}", style.render());
+        }
+        match language {
+            English => print!("{} ", weekday.short_translate(English)),
+            Chinese => print!(" {} ", weekday.short_translate(Chinese)),
+        }
+        if is_terminal {
+            print!("{}", style.render_reset());
+        }
     }
+    println!();
     let spaces = today.with_day(1).unwrap().weekday().num_days_from_sunday();
     for _ in 0..spaces {
         print!("    ");
     }
     let days = match today.month() {
         1 => 31,
-        2 => if today.leap_year() { 29 } else { 28 },
+        2 => {
+            if today.leap_year() {
+                29
+            } else {
+                28
+            }
+        }
         3 => 31,
         4 => 30,
         5 => 31,
