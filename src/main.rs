@@ -1,7 +1,7 @@
 use std::io::IsTerminal;
 
 use anstyle::{AnsiColor, Color, Style};
-use chrono::{Datelike, Month, Weekday};
+use chrono::{Datelike, Month, Weekday::{self, *}};
 use nongli::language::{Language::*, ShortTranslate};
 
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
@@ -12,7 +12,10 @@ fn main() {
     } else {
         English
     };
-    let start_of_week = Weekday::Sun;
+    let start_on_monday = std::env::var("START_ON_MONDAY")
+        .is_ok_and(|s| ["1", "true", "", "yes"].contains(&s.as_str()));
+    let start_of_week = if start_on_monday { Mon } else { Sun };
+    let end_of_week = start_of_week.pred();
     let is_terminal = std::io::stdout().is_terminal();
     let today = chrono::Local::now().date_naive();
     println!(
@@ -21,7 +24,8 @@ fn main() {
             today.year(),
             Month::try_from(today.month() as u8).unwrap(),
             language
-        ).to_string()
+        )
+        .to_string()
     );
     for weekday in nongli::iter::Weekdays(start_of_week).take(7) {
         let mut style = Style::new();
@@ -38,7 +42,12 @@ fn main() {
         }
     }
     println!();
-    let spaces = today.with_day(1).unwrap().weekday().num_days_from_sunday();
+    let weekday_of_1st = today.with_day(1).unwrap().weekday();
+    let spaces = if start_on_monday {
+        weekday_of_1st.num_days_from_monday()
+    } else {
+        weekday_of_1st.num_days_from_sunday()
+    };
     for _ in 0..spaces {
         print!("    ");
     }
@@ -62,7 +71,7 @@ fn main() {
                 print!(" {day:2} ");
             }
         }
-        if date.weekday() == Weekday::Sat {
+        if date.weekday() == end_of_week {
             println!();
         }
     }

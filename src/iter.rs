@@ -7,17 +7,17 @@ pub struct Weekdays(pub Weekday);
 impl Iterator for Months {
     type Item = Month;
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.0.succ();
-        self.0 = next;
-        Some(next)
+        let this = self.0;
+        self.0 = self.0.succ();
+        Some(this)
     }
 }
 
 impl Iterator for Weekdays {
     type Item = Weekday;
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.0.succ();
-        self.0 = next;
-        Some(next)
+        let this = self.0;
+        self.0 = self.0.succ();
+        Some(this)
     }
 }
