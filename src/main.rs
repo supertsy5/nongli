@@ -42,27 +42,7 @@ fn main() {
     for _ in 0..spaces {
         print!("    ");
     }
-    let days = match today.month() {
-        1 => 31,
-        2 => {
-            if today.leap_year() {
-                29
-            } else {
-                28
-            }
-        }
-        3 => 31,
-        4 => 30,
-        5 => 31,
-        6 => 30,
-        7 => 31,
-        8 => 31,
-        9 => 30,
-        10 => 31,
-        11 => 30,
-        12 => 31,
-        _ => unreachable!(),
-    };
+    let days = nongli::days_of_month(today);
     for day in 1..=days {
         let date = today.with_day(day).unwrap();
         let mut style = Style::new();
