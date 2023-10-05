@@ -32,3 +32,36 @@ pub fn days_of_month(date: NaiveDate) -> u32 {
         _ => unreachable!(),
     }
 }
+
+pub enum SolarTerm {
+    Chunfen,
+    Qingming,
+    Guyu,
+    Lixia,
+    Xiaoman,
+    Mangzhong,
+    Xiazhi,
+    Xiaoshu,
+    Dashu,
+    Liqiu,
+    Chushu,
+    Bailu,
+    Qiufen,
+    Hanlu,
+    Shuangjiang,
+    Lidong,
+    Xiaoxue,
+    Daxue,
+    Dongzhi,
+    Xiaohan,
+    Dahan,
+    Lichun,
+    Yushui,
+    Jingzhe,
+}
+
+impl SolarTerm {
+    pub fn is_mid_term(self) -> bool {
+        self as u8 % 2 > 0
+    }
+}
