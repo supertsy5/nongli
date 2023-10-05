@@ -62,6 +62,6 @@ pub enum SolarTerm {
 
 impl SolarTerm {
     pub fn is_mid_term(self) -> bool {
-        self as u8 % 2 > 0
+        self as u8 % 2 == 0
     }
 }
