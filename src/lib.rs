@@ -1,5 +1,3 @@
-use chrono::NaiveDate;
-
 pub mod iter;
 pub mod language;
 
@@ -8,7 +6,7 @@ pub fn is_weekend(weekday: chrono::Weekday) -> bool {
     [Sun, Sat].contains(&weekday)
 }
 
-pub fn days_of_month(date: NaiveDate) -> u32 {
+pub fn days_of_month(date: chrono::NaiveDate) -> u32 {
     use chrono::Datelike;
     match date.month() {
         1 => 31,
@@ -61,7 +59,7 @@ pub enum SolarTerm {
 }
 
 impl SolarTerm {
-    pub fn is_mid_term(self) -> bool {
+    pub fn is_midterm(self) -> bool {
         self as u8 % 2 == 0
     }
 }
