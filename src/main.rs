@@ -1,7 +1,10 @@
 use std::io::IsTerminal;
 
 use anstyle::{AnsiColor, Color, Style};
-use chrono::{Datelike, Month, Weekday::{self, *}};
+use chrono::{
+    Datelike, Month,
+    Weekday::{self, *},
+};
 use nongli::language::{Language::*, ShortTranslate};
 
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
