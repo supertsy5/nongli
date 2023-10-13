@@ -1,6 +1,10 @@
 pub mod data;
 pub mod iter;
 pub mod language;
+pub mod term;
+
+pub use term::SolarTerm;
+pub use data::{ChineseDate, DataEntry};
 
 pub fn is_weekend(weekday: chrono::Weekday) -> bool {
     use chrono::Weekday::{Sat, Sun};
@@ -29,38 +33,5 @@ pub fn days_of_month(date: chrono::NaiveDate) -> u32 {
         11 => 30,
         12 => 31,
         _ => unreachable!(),
-    }
-}
-
-pub enum SolarTerm {
-    Chunfen,
-    Qingming,
-    Guyu,
-    Lixia,
-    Xiaoman,
-    Mangzhong,
-    Xiazhi,
-    Xiaoshu,
-    Dashu,
-    Liqiu,
-    Chushu,
-    Bailu,
-    Qiufen,
-    Hanlu,
-    Shuangjiang,
-    Lidong,
-    Xiaoxue,
-    Daxue,
-    Dongzhi,
-    Xiaohan,
-    Dahan,
-    Lichun,
-    Yushui,
-    Jingzhe,
-}
-
-impl SolarTerm {
-    pub fn is_midterm(self) -> bool {
-        self as u8 % 2 == 0
     }
 }
