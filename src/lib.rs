@@ -1,9 +1,9 @@
 pub mod data;
 pub mod iter;
 pub mod language;
-pub mod term;
+pub mod solar_term;
 
-pub use term::SolarTerm;
+pub use solar_term::SolarTerm;
 
 pub fn is_weekend(weekday: chrono::Weekday) -> bool {
     use chrono::Weekday::{Sat, Sun};
