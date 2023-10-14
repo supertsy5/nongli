@@ -1,5 +1,6 @@
 use crate::data::CHUNJIE;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChineseDate {
     year: u16,
     month: u8,
@@ -66,4 +67,13 @@ impl ChineseDate {
     pub fn day(&self) -> u8 {
         self.day
     }
+}
+
+#[cfg(test)]
+#[test]
+fn test() {
+    assert_eq!(
+        ChineseDate::new(&chrono::NaiveDate::from_ymd_opt(2023, 10, 14).unwrap()),
+        Some(ChineseDate { year: 2023, month: 8, leap: false, day: 30})
+    );
 }
