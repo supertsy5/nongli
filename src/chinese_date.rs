@@ -1,4 +1,4 @@
-use crate::data::CHUNJIE;
+use crate::data::{CHUNJIE, DATA};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChineseDate {
@@ -9,14 +9,23 @@ pub struct ChineseDate {
 }
 
 impl ChineseDate {
-    pub fn new(date: &impl chrono::Datelike) -> Option<Self> {let year = date.year();
+    pub fn new(year: u16, month: u8, leap: bool, day: u8) -> Option<Self> {
+        (!leap || DATA[year as usize - 1900] as u8 & 0x0f == month).then_some(ChineseDate {
+            year,
+            month,
+            leap,
+            day,
+        })
+    }
+    pub fn from_gregorian(date: &impl chrono::Datelike) -> Option<Self> {
+        let year = date.year();
         if !(1900..=2100).contains(&year) {
             return None;
         }
         let mut index = year as usize - 1900;
         let ordinal = date.ordinal0();
         let chunjie = crate::data::CHUNJIE[index] as u32;
-    
+
         let chinese_ordinal = if ordinal >= chunjie {
             ordinal - chunjie
         } else if year >= 1901 {
@@ -25,10 +34,10 @@ impl ChineseDate {
         } else {
             return None;
         } as u16;
-    
+
         let data = crate::data::DATA[index];
         let leap_month = data as u8 & 0x0f;
-    
+
         let big_or_small = if leap_month > 0 {
             (data >> 3) & !((1 << leap_month) - 1)
                 | (1 << leap_month - 1)
@@ -36,7 +45,7 @@ impl ChineseDate {
         } else {
             data >> 3
         };
-    
+
         let mut month = 0u8;
         let mut day = chinese_ordinal;
         for i in 0..=12 {
@@ -53,7 +62,12 @@ impl ChineseDate {
         } else {
             false
         };
-        Some(ChineseDate { year: year as u16, month, leap, day: day as u8 })
+        Some(ChineseDate {
+            year: year as u16,
+            month,
+            leap,
+            day: day as u8,
+        })
     }
     pub fn year(&self) -> u16 {
         self.year
@@ -73,7 +87,12 @@ impl ChineseDate {
 #[test]
 fn test() {
     assert_eq!(
-        ChineseDate::new(&chrono::NaiveDate::from_ymd_opt(2023, 10, 14).unwrap()),
-        Some(ChineseDate { year: 2023, month: 8, leap: false, day: 30})
+        ChineseDate::from_gregorian(&chrono::NaiveDate::from_ymd_opt(2023, 10, 14).unwrap()),
+        Some(ChineseDate {
+            year: 2023,
+            month: 8,
+            leap: false,
+            day: 30
+        })
     );
 }
