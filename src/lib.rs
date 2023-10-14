@@ -1,3 +1,4 @@
+pub mod chinese_date;
 pub mod data;
 pub mod iter;
 pub mod language;
@@ -10,12 +11,23 @@ pub fn is_weekend(weekday: chrono::Weekday) -> bool {
     [Sun, Sat].contains(&weekday)
 }
 
-pub fn days_of_month(date: chrono::NaiveDate) -> u32 {
-    use chrono::Datelike;
+pub fn is_leap_year(year: i32) -> bool {
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+}
+
+pub fn days_of_year(year: i32) -> u16 {
+    if is_leap_year(year) {
+        366
+    } else {
+        365
+    }
+}
+
+pub fn days_of_month(date: &impl chrono::Datelike) -> u32 {
     match date.month() {
         1 => 31,
         2 => {
-            if date.leap_year() {
+            if is_leap_year(date.year()) {
                 29
             } else {
                 28
