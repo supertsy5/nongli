@@ -4,7 +4,6 @@ pub mod language;
 pub mod term;
 
 pub use term::SolarTerm;
-pub use data::{ChineseDate, DataEntry};
 
 pub fn is_weekend(weekday: chrono::Weekday) -> bool {
     use chrono::Weekday::{Sat, Sun};
