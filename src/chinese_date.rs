@@ -20,9 +20,9 @@ pub fn short_or_long(year: u16) -> Option<u16> {
     data(year).map(|data| {
         let leap_month = data as u8 & 0x0f;
         (if leap_month > 0 {
-            (data >> 3) & !((1 << 13 - leap_month) - 1) // Months before the leap month
-                    | ((data >> 16 & 1) << 12 - leap_month) // The leap month
-                    | (data >> 4) & ((1 << 12 - leap_month) - 1) // Monthes after the leap month
+            (data >> 3) & !((1 << (13 - leap_month)) - 1) // Months before the leap month
+                    | ((data >> 16 & 1) << (12 - leap_month)) // The leap month
+                    | (data >> 4) & ((1 << (12 - leap_month)) - 1) // Monthes after the leap month
         } else {
             data >> 3 & 0x1ffe
         }) as u16
@@ -47,7 +47,7 @@ pub fn ordinal_month(year: u16, month: u8, leap: bool) -> Option<u8> {
 
 pub fn is_long_month(year: u16, month: u8, leap: bool) -> Option<bool> {
     ordinal_month(year, month, leap).and_then(|ord_month| {
-        short_or_long(year).map(|short_long| short_long >> 12 - ord_month & 1 > 0)
+        short_or_long(year).map(|short_long| short_long >> (12 - ord_month) & 1 > 0)
     })
 }
 
@@ -96,7 +96,7 @@ impl ChineseDate {
         let leap_month = leap_month(year);
         let short_long = short_or_long(year)?;
         for i in 0..=12 {
-            let days_of_month = (short_long >> 12 - i & 1) as u16 + 29;
+            let days_of_month = (short_long >> (12 - i) & 1) as u16 + 29;
             if day < days_of_month {
                 month = i + 1;
                 break;
@@ -136,13 +136,13 @@ impl ChineseDate {
         let leap_month = leap_month(self.year);
         let data = data(self.year).unwrap();
         for i in 1..self.month {
-            ord += 29 + (data >> 16 - i & 1) as u16;
+            ord += 29 + (data >> (16 - i) & 1) as u16;
             if i == leap_month {
                 ord += 29 + (data >> 16 & 1) as u16;
             }
         }
         if self.leap {
-            ord += 29 + (data >> 16 - self.month & 1) as u16;
+            ord += 29 + (data >> (16 - self.month) & 1) as u16;
         }
         ord += self.day as u16 - 1;
         ord
@@ -165,6 +165,7 @@ impl ChineseDate {
 #[cfg(test)]
 #[test]
 fn test() {
+    #[allow(clippy::type_complexity)]
     const EXAMPLES: &[((i32, u32, u32), (u16, u8, bool, u8))] = &[
         ((1970, 1, 1), (1969, 11, false, 24)),
         ((2023, 1, 1), (2022, 12, false, 10)),

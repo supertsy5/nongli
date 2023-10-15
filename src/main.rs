@@ -23,6 +23,7 @@ fn main() {
         .is_ok_and(|s| ["", "1", "t", "true", "y", "yes"].contains(&s.as_str()));
     let start_of_week = if start_on_monday { Mon } else { Sun };
     let end_of_week = start_of_week.pred();
+    let highlight_today = true;
     let is_terminal = std::io::stdout().is_terminal();
     let today = chrono::Local::now().date_naive();
 
@@ -72,7 +73,7 @@ fn main() {
             if is_weekend {
                 style = style.fg_color(Some(WEEKEND_COLOR));
             }
-            if day == today.day() {
+            if highlight_today && day == today.day() {
                 if is_weekend {
                     style = style.bg_color(Some(Color::Ansi(AnsiColor::White)));
                 } else {
@@ -81,7 +82,8 @@ fn main() {
             }
             print!("{} {day:2} {}", style.render(), style.render_reset());
         } else {
-            if day == today.day() {
+            #[allow(clippy::collapsible_if)]
+            if highlight_today && day == today.day() {
                 print!("[{day:2}]");
             } else {
                 print!(" {day:2} ");
