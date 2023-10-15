@@ -8,6 +8,24 @@ pub struct ChineseDate {
     day: u8,
 }
 
+#[cfg(test)]
+fn eprint_segmented(s: &str, size: usize) {
+    let mut i = 0usize;
+    let mut print_separator = false;
+    for ch in s.chars() {
+        if print_separator {
+            print_separator = false;
+            eprint!("-");
+        }
+        eprint!("{ch}");
+        i += 1;
+        if i == size {
+            i = 0;
+            print_separator = true;
+        }
+    }
+}
+
 impl ChineseDate {
     pub fn new(year: u16, month: u8, leap: bool, day: u8) -> Option<Self> {
         (!leap || DATA[year as usize - 1900] as u8 & 0x0f == month).then_some(ChineseDate {
@@ -18,7 +36,7 @@ impl ChineseDate {
         })
     }
     pub fn from_gregorian(date: &impl chrono::Datelike) -> Option<Self> {
-        let year = date.year();
+        let mut year = date.year();
         if !(1900..=2100).contains(&year) {
             return None;
         }
@@ -30,26 +48,39 @@ impl ChineseDate {
             ordinal - chunjie
         } else if year >= 1901 {
             index -= 1;
-            ordinal + 365 + crate::days_of_year(year as i32) as u32 - CHUNJIE[index] as u32
+            year -= 1;
+            ordinal + crate::days_of_year(year as i32) as u32 - CHUNJIE[index] as u32
         } else {
             return None;
         } as u16;
 
         let data = crate::data::DATA[index];
+        #[cfg(test)]
+        {
+            eprint!("data = ");
+            eprint_segmented(&format!("{data:020b}"), 4);
+            eprintln!();
+        }
         let leap_month = data as u8 & 0x0f;
 
-        let big_or_small = if leap_month > 0 {
-            (data >> 3) & !((1 << leap_month) - 1)
-                | (1 << leap_month - 1)
-                | (data >> 4) & ((1 << leap_month - 1) - 1)
+        let short_or_long = if leap_month > 0 {
+            (data >> 3) & !((1 << 13 - leap_month) - 1) // Months before the leap month
+                | ((data >> 16 & 1) << 12 - leap_month) // The leap month
+                | (data >> 4) & ((1 << 12 - leap_month) - 1) // Monthes after the leap month
         } else {
-            data >> 3
+            data >> 3 & 0x1ffe
         };
+        #[cfg(test)]
+        {
+            eprint!("short_or_long = ");
+            eprint_segmented(&format!("{short_or_long:016b}"), 4);
+            eprintln!();
+        }
 
         let mut month = 0u8;
         let mut day = chinese_ordinal;
         for i in 0..=12 {
-            let days_of_month = (big_or_small >> 12 - i & 1) as u16 + 29;
+            let days_of_month = (short_or_long >> 12 - i & 1) as u16 + 29;
             if day < days_of_month {
                 month = i + 1;
                 break;
@@ -58,7 +89,7 @@ impl ChineseDate {
         }
         let leap = if leap_month > 0 && month > leap_month {
             month -= 1;
-            true
+            month == leap_month
         } else {
             false
         };
@@ -66,7 +97,7 @@ impl ChineseDate {
             year: year as u16,
             month,
             leap,
-            day: day as u8,
+            day: day as u8 + 1,
         })
     }
     pub fn year(&self) -> u16 {
@@ -86,13 +117,17 @@ impl ChineseDate {
 #[cfg(test)]
 #[test]
 fn test() {
-    assert_eq!(
-        ChineseDate::from_gregorian(&chrono::NaiveDate::from_ymd_opt(2023, 10, 14).unwrap()),
-        Some(ChineseDate {
-            year: 2023,
-            month: 8,
-            leap: false,
-            day: 30
-        })
-    );
+    const EXAMPLES: &[((i32, u32, u32), (u16, u8, bool, u8))] = &[
+        ((2023, 1, 1), (2022, 12, false, 10)),
+        ((2023, 1, 22), (2023, 1, false, 1)),
+        ((2023, 10, 15), (2023, 9, false, 1)),
+    ];
+    for ((year, month, day), (ch_year, ch_month, ch_leap, ch_day)) in EXAMPLES.iter().copied() {
+        assert_eq!(
+            ChineseDate::from_gregorian(
+                &chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap()
+            ),
+            ChineseDate::new(ch_year, ch_month, ch_leap, ch_day)
+        );
+    }
 }
