@@ -10,24 +10,6 @@ pub struct ChineseDate {
     day: u8,
 }
 
-#[cfg(test)]
-fn eprint_segmented(s: &str, size: usize) {
-    let mut i = 0usize;
-    let mut print_separator = false;
-    for ch in s.chars() {
-        if print_separator {
-            print_separator = false;
-            eprint!("-");
-        }
-        eprint!("{ch}");
-        i += 1;
-        if i == size {
-            i = 0;
-            print_separator = true;
-        }
-    }
-}
-
 pub fn short_or_long(year: u16) -> Option<u16> {
     if (1900..=2100).contains(&year) {
         let data = DATA[year as usize - 1900];
@@ -103,25 +85,13 @@ impl ChineseDate {
             return None;
         } as u16;
 
-        let data = crate::data::DATA[index];
-        #[cfg(test)]
-        {
-            eprint!("data = ");
-            eprint_segmented(&format!("{data:020b}"), 4);
-            eprintln!();
-        }
-        let leap_month = data as u8 & 0x0f;
-
-        let short_long = short_or_long(year).unwrap();
-        #[cfg(test)]
-        {
-            eprint!("short_or_long = ");
-            eprint_segmented(&format!("{short_long:016b}"), 4);
-            eprintln!();
-        }
-
+        Self::from_ordinal(year, chinese_ordinal)
+    }
+    pub fn from_ordinal(year: u16, ordinal: u16) -> Option<Self> {
         let mut month = 0u8;
-        let mut day = chinese_ordinal;
+        let mut day = ordinal;
+        let leap_month = leap_month(year);
+        let short_long = short_or_long(year)?;
         for i in 0..=12 {
             let days_of_month = (short_long >> 12 - i & 1) as u16 + 29;
             if day < days_of_month {
@@ -129,6 +99,9 @@ impl ChineseDate {
                 break;
             }
             day -= days_of_month;
+            if i == 12 {
+                return None;
+            }
         }
         let leap = if leap_month > 0 && month > leap_month {
             month -= 1;
@@ -137,7 +110,7 @@ impl ChineseDate {
             false
         };
         Some(ChineseDate {
-            year: year,
+            year,
             month,
             leap,
             day: day as u8 + 1,
