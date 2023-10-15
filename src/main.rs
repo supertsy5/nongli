@@ -9,6 +9,10 @@ use nongli::language::{Language::*, ShortTranslate};
 
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
+pub fn printed_width(s: &str) -> usize {
+    s.chars().map(|ch| if (0x4e00..=0x9fff).contains(&(ch as u32)) { 2 } else { 1 }).sum()
+}
+
 fn main() {
     let language = if std::env::var("LANG").is_ok_and(|lang| lang.starts_with("zh")) {
         Chinese
@@ -16,20 +20,24 @@ fn main() {
         English
     };
     let start_on_monday = std::env::var("START_ON_MONDAY")
-        .is_ok_and(|s| ["1", "true", "", "yes"].contains(&s.as_str()));
+        .is_ok_and(|s| ["", "1", "t", "true", "y", "yes"].contains(&s.as_str()));
     let start_of_week = if start_on_monday { Mon } else { Sun };
     let end_of_week = start_of_week.pred();
     let is_terminal = std::io::stdout().is_terminal();
     let today = chrono::Local::now().date_naive();
-    println!(
-        "{:^28}",
-        nongli::language::Title(
-            today.year(),
-            Month::try_from(today.month() as u8).unwrap(),
-            language
-        )
-        .to_string()
-    );
+
+    let title = nongli::language::Title(
+        today.year(),
+        Month::try_from(today.month() as u8).unwrap(),
+        language
+    )
+    .to_string();
+    let padding_spaces = (28 - printed_width(&title)) / 2;
+    for _ in 0..padding_spaces {
+        print!(" ");
+    }
+    println!("{title}");
+
     for weekday in nongli::iter::Weekdays(start_of_week).take(7) {
         let mut style = Style::new();
         if is_terminal && nongli::is_weekend(weekday) {
@@ -45,6 +53,7 @@ fn main() {
         }
     }
     println!();
+
     let weekday_of_1st = today.with_day(1).unwrap().weekday();
     let spaces = if start_on_monday {
         weekday_of_1st.num_days_from_monday()
@@ -64,7 +73,11 @@ fn main() {
                 style = style.fg_color(Some(WEEKEND_COLOR));
             }
             if day == today.day() {
-                style = style.invert();
+                if is_weekend {
+                    style = style.bg_color(Some(Color::Ansi(AnsiColor::White)));
+                } else {
+                    style = style.invert();
+                }
             }
             print!("{} {day:2} {}", style.render(), style.render_reset());
         } else {

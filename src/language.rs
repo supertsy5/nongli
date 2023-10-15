@@ -21,7 +21,7 @@ impl std::fmt::Display for Title {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.2 {
             English => write!(f, "{} {}", self.1.name(), self.0),
-            Chinese => write!(f, "{}年 {}", self.0, self.1.translate(Chinese)),
+            Chinese => write!(f, "{}年  {}", self.0, self.1.translate(Chinese)),
         }
     }
 }
