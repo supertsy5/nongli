@@ -54,7 +54,7 @@ fn main() {
     for _ in 0..spaces {
         print!("    ");
     }
-    let days = nongli::days_of_month(&today);
+    let days = nongli::days_of_month(today.year() as u16, today.month() as u8) as u32;
     for day in 1..=days {
         let date = today.with_day(day).unwrap();
         let mut style = Style::new();

@@ -11,11 +11,11 @@ pub fn is_weekend(weekday: chrono::Weekday) -> bool {
     [Sun, Sat].contains(&weekday)
 }
 
-pub fn is_leap_year(year: i32) -> bool {
+pub fn is_leap_year(year: u16) -> bool {
     year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
-pub fn days_of_year(year: i32) -> u16 {
+pub fn days_of_year(year: u16) -> u16 {
     if is_leap_year(year) {
         366
     } else {
@@ -23,11 +23,11 @@ pub fn days_of_year(year: i32) -> u16 {
     }
 }
 
-pub fn days_of_month(date: &impl chrono::Datelike) -> u32 {
-    match date.month() {
+pub fn days_of_month(year: u16, month: u8) -> u8 {
+    match month {
         1 => 31,
         2 => {
-            if is_leap_year(date.year()) {
+            if is_leap_year(year) {
                 29
             } else {
                 28
@@ -43,6 +43,6 @@ pub fn days_of_month(date: &impl chrono::Datelike) -> u32 {
         10 => 31,
         11 => 30,
         12 => 31,
-        _ => unreachable!(),
+        _ => 0,
     }
 }
