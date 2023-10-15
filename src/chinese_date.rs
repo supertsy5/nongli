@@ -138,8 +138,11 @@ impl ChineseDate {
         for i in 1..self.month {
             ord += 29 + (data >> 16 - i & 1) as u16;
             if i == leap_month {
-                ord += 20 + (data >> 16 & 1) as u16;
+                ord += 29 + (data >> 16 & 1) as u16;
             }
+        }
+        if self.leap {
+            ord += 29 + (data >> 16 - self.month & 1) as u16;
         }
         ord += self.day as u16 - 1;
         ord
@@ -148,14 +151,14 @@ impl ChineseDate {
         let mut ordinal = self.ordinal() + 1;
         ordinal += CHUNJIE[self.year as usize - 1900] as u16;
         let days_of_year = crate::days_of_year(self.year);
-        if ordinal < days_of_year {
-            NaiveDate::from_yo_opt(self.year as i32, ordinal as u32)
+        dbg!(ordinal);
+        let year = if ordinal < days_of_year {
+            self.year as i32
         } else {
             ordinal -= days_of_year;
-            dbg!(self.year, ordinal);
-            NaiveDate::from_yo_opt(self.year as i32 + 1, ordinal as u32)
-        }
-        .unwrap()
+            self.year as i32 + 1
+        };
+        NaiveDate::from_yo_opt(year, ordinal as u32).unwrap()
     }
 }
 
@@ -166,6 +169,9 @@ fn test() {
         ((1970, 1, 1), (1969, 11, false, 24)),
         ((2023, 1, 1), (2022, 12, false, 10)),
         ((2023, 1, 22), (2023, 1, false, 1)),
+        ((2023, 2, 20), (2023, 2, false, 1)),
+        ((2023, 3, 22), (2023, 2, true, 1)),
+        ((2023, 4, 20), (2023, 3, false, 1)),
         ((2023, 10, 15), (2023, 9, false, 1)),
     ];
     for ((year, month, day), (ch_year, ch_month, ch_leap, ch_day)) in EXAMPLES.iter().copied() {
