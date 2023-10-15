@@ -1,3 +1,5 @@
+use chrono::NaiveDate;
+
 use crate::data::{CHUNJIE, DATA};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,6 +28,52 @@ fn eprint_segmented(s: &str, size: usize) {
     }
 }
 
+pub fn short_or_long(year: u16) -> Option<u16> {
+    if (1900..=2100).contains(&year) {
+        let data = DATA[year as usize - 1900];
+        let leap_month = data as u8 & 0x0f;
+        Some(if leap_month > 0 {
+            (data >> 3) & !((1 << 13 - leap_month) - 1) // Months before the leap month
+                    | ((data >> 16 & 1) << 12 - leap_month) // The leap month
+                    | (data >> 4) & ((1 << 12 - leap_month) - 1) // Monthes after the leap month
+        } else {
+            data >> 3 & 0x1ffe
+        } as u16)
+    } else {
+        None
+    }
+}
+
+pub fn ordinal_month(year: u16, month: u8, leap: bool) -> Option<u8> {
+    if !((1900..=2100).contains(&year) && (1..=12).contains(&month)) {
+        return None;
+    }
+    let data = DATA[year as usize - 1900];
+    let leap_month = data as u8 & 0x0f;
+    if leap && month != leap_month {
+        return None;
+    }
+    Some(if leap_month > 0 && month >= leap_month {
+        month
+    } else {
+        month - 1
+    })
+}
+
+pub fn is_long_month(year: u16, month: u8, leap: bool) -> Option<bool> {
+    ordinal_month(year, month, leap).and_then(|ord_month| {
+        short_or_long(year).map(|short_long| short_long >> 12 - ord_month & 1 > 0)
+    })
+}
+
+pub fn leap_month(year: u16) -> u8 {
+    if (1900..=2100).contains(&year) {
+        DATA[year as usize - 1900] as u8 & 0x0f
+    } else {
+        0
+    }
+}
+
 impl ChineseDate {
     pub fn new(year: u16, month: u8, leap: bool, day: u8) -> Option<Self> {
         (!leap || DATA[year as usize - 1900] as u8 & 0x0f == month).then_some(ChineseDate {
@@ -36,10 +84,11 @@ impl ChineseDate {
         })
     }
     pub fn from_gregorian(date: &impl chrono::Datelike) -> Option<Self> {
-        let mut year = date.year();
+        let year = date.year();
         if !(1900..=2100).contains(&year) {
             return None;
         }
+        let mut year = year as u16;
         let mut index = year as usize - 1900;
         let ordinal = date.ordinal0();
         let chunjie = crate::data::CHUNJIE[index] as u32;
@@ -63,24 +112,18 @@ impl ChineseDate {
         }
         let leap_month = data as u8 & 0x0f;
 
-        let short_or_long = if leap_month > 0 {
-            (data >> 3) & !((1 << 13 - leap_month) - 1) // Months before the leap month
-                | ((data >> 16 & 1) << 12 - leap_month) // The leap month
-                | (data >> 4) & ((1 << 12 - leap_month) - 1) // Monthes after the leap month
-        } else {
-            data >> 3 & 0x1ffe
-        };
+        let short_long = short_or_long(year).unwrap();
         #[cfg(test)]
         {
             eprint!("short_or_long = ");
-            eprint_segmented(&format!("{short_or_long:016b}"), 4);
+            eprint_segmented(&format!("{short_long:016b}"), 4);
             eprintln!();
         }
 
         let mut month = 0u8;
         let mut day = chinese_ordinal;
         for i in 0..=12 {
-            let days_of_month = (short_or_long >> 12 - i & 1) as u16 + 29;
+            let days_of_month = (short_long >> 12 - i & 1) as u16 + 29;
             if day < days_of_month {
                 month = i + 1;
                 break;
@@ -94,7 +137,7 @@ impl ChineseDate {
             false
         };
         Some(ChineseDate {
-            year: year as u16,
+            year: year,
             month,
             leap,
             day: day as u8 + 1,
@@ -111,6 +154,9 @@ impl ChineseDate {
     }
     pub fn day(&self) -> u8 {
         self.day
+    }
+    pub fn to_gregorian(&self) -> NaiveDate {
+        todo!()
     }
 }
 
