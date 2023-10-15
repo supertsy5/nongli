@@ -1,3 +1,4 @@
+pub mod chars;
 pub mod chinese_date;
 pub mod data;
 pub mod iter;
