@@ -5,7 +5,10 @@ use chrono::{
     Datelike, Month,
     Weekday::{self, *},
 };
-use nongli::language::{Language::*, ShortTranslateAdapter};
+use nongli::{
+    chinese_date::ChineseDate,
+    language::{ChineseDay, Language::*, ShortTranslateAdapter},
+};
 
 pub const CELL_WIDTH: usize = 8;
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
@@ -80,7 +83,10 @@ fn main() {
         }
         print!(
             "{}",
-            Centered(&ShortTranslateAdapter(&weekday, language).to_string(), CELL_WIDTH)
+            Centered(
+                &ShortTranslateAdapter(&weekday, language).to_string(),
+                CELL_WIDTH
+            )
         );
         if is_terminal {
             print!("{}", Reset.render());
@@ -135,6 +141,10 @@ fn main() {
         println!();
         for day in start_day..end_day {
             let date = today.with_day(day as u32).unwrap();
+            let ch_day = ChineseDate::from_gregorian(&date)
+                .and_then(|ch_date| ChineseDay::new(ch_date.day()))
+                .map(|day| day.to_string())
+                .unwrap_or_default();
             if is_terminal {
                 let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
                 let style = if highlight_today && day == today.day() as u8 {
@@ -149,17 +159,17 @@ fn main() {
                     Style::new()
                 };
                 print!(
-                    "{}{day:^2$}{}",
+                    "{}{}{}",
                     style.render(),
+                    Centered(&ch_day, CELL_WIDTH),
                     style.render_reset(),
-                    CELL_WIDTH
                 );
             } else {
                 #[allow(clippy::collapsible_if)]
                 if highlight_today && day == today.day() as u8 {
-                    print!("[{day:^0$}]", CELL_WIDTH - 2);
+                    print!("[{}]", Centered(&ch_day, CELL_WIDTH - 1));
                 } else {
-                    print!("{day:^0$}", CELL_WIDTH);
+                    print!("{}", Centered(&ch_day, CELL_WIDTH));
                 }
             }
         }

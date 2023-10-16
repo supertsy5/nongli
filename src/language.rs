@@ -1,7 +1,23 @@
-use std::fmt::{Formatter, Result as FmtResult, Display};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use chrono::{Month::{self, *}, Weekday::{self, *}};
+use chrono::{
+    Month::{self, *},
+    Weekday::{self, *},
+};
 use Language::*;
+
+use crate::chinese_date::ChineseDate;
+
+pub const TIANGAN: &str = "甲乙丙丁戊己庚辛壬癸";
+pub const DIZHI: &str = "子丑寅卯辰巳午未申酉戌亥";
+pub const SHENGXIAO_S: &str = "鼠牛虎兔龙蛇马羊猴鸡狗猪";
+pub const SHENGXIAO_T: &str = "鼠牛虎兔龍蛇馬羊猴雞狗豬";
+pub const NUMBER: &str = "一二三四五六七八九十";
+
+pub fn get_char(s: &str, index: usize) -> Option<char> {
+    s.get(index * 3..).and_then(|sub| sub.chars().next())
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Language {
     English,
@@ -16,6 +32,9 @@ pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
 
 #[derive(Clone, Copy, Debug)]
 pub struct ShortTranslateAdapter<'a, T: ShortTranslate>(pub &'a T, pub Language);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ChineseDay(u8);
 
 pub trait Translate {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
@@ -37,6 +56,40 @@ impl<'a, T: ShortTranslate> Display for ShortTranslateAdapter<'a, T> {
     }
 }
 
+impl ChineseDay {
+    pub fn new(day: u8) -> Option<Self> {
+        (1..=30).contains(&day).then_some(Self(day))
+    }
+    pub fn get(self) -> u8 {
+        self.0
+    }
+}
+
+impl Display for ChineseDay {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self.0 {
+            1..=10 => write!(
+                f,
+                "初{}",
+                get_char(NUMBER, self.0 as usize - 1).unwrap()
+            ),
+            11..=19 => write!(
+                f,
+                "十{} ",
+                get_char(NUMBER, self.0 as usize - 11).unwrap()
+            ),
+            20 => write!(f, "二十"),
+            21..=29 => write!(
+                f,
+                "廿{} ",
+                get_char(NUMBER, self.0 as usize - 21).unwrap()
+            ),
+            30 => write!(f, "三十"),
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl std::fmt::Display for Title {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.2 {
@@ -54,38 +107,46 @@ impl Translate for Month {
 
 impl ShortTranslate for Month {
     fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", match language {
-            English => self.name(),
-            Chinese => match self {
-                January => "一",
-                February => "二",
-                March => "三",
-                April => "四",
-                May => "五",
-                June => "六",
-                July => "七",
-                August => "八",
-                September => "九",
-                October => "十",
-                November => "十一",
-                December => "十二",
-            },
-        })
+        write!(
+            f,
+            "{}",
+            match language {
+                English => self.name(),
+                Chinese => match self {
+                    January => "一",
+                    February => "二",
+                    March => "三",
+                    April => "四",
+                    May => "五",
+                    June => "六",
+                    July => "七",
+                    August => "八",
+                    September => "九",
+                    October => "十",
+                    November => "十一",
+                    December => "十二",
+                },
+            }
+        )
     }
 }
 
 impl Translate for Weekday {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         match language {
-            English => write!(f, "{}", match self {
-                Sun => "Sunday",
-                Mon => "Monday",
-                Tue => "Tuesday",
-                Wed => "Wednesday",
-                Thu => "Thursday",
-                Fri => "Friday",
-                Sat => "Saturday",
-            }),
+            English => write!(
+                f,
+                "{}",
+                match self {
+                    Sun => "Sunday",
+                    Mon => "Monday",
+                    Tue => "Tuesday",
+                    Wed => "Wednesday",
+                    Thu => "Thursday",
+                    Fri => "Friday",
+                    Sat => "Saturday",
+                }
+            ),
             Chinese => write!(f, "{}", ShortTranslateAdapter(self, language)),
         }
     }
@@ -93,25 +154,45 @@ impl Translate for Weekday {
 
 impl ShortTranslate for Weekday {
     fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", match language {
-            English => match self {
-                Sun => "Sun",
-                Mon => "Mon",
-                Tue => "Tue",
-                Wed => "Wed",
-                Thu => "Thu",
-                Fri => "Fri",
-                Sat => "Sat",
-            },
-            Chinese => match self {
-                Sun => "日",
-                Mon => "一",
-                Tue => "二",
-                Wed => "三",
-                Thu => "四",
-                Fri => "五",
-                Sat => "六",
+        write!(
+            f,
+            "{}",
+            match language {
+                English => match self {
+                    Sun => "Sun",
+                    Mon => "Mon",
+                    Tue => "Tue",
+                    Wed => "Wed",
+                    Thu => "Thu",
+                    Fri => "Fri",
+                    Sat => "Sat",
+                },
+                Chinese => match self {
+                    Sun => "日",
+                    Mon => "一",
+                    Tue => "二",
+                    Wed => "三",
+                    Thu => "四",
+                    Fri => "五",
+                    Sat => "六",
+                },
             }
-        })
+        )
+    }
+}
+
+impl Translate for ChineseDate {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        let relative_year = self.year() as i16 - 1984;
+        write!(
+            f,
+            "{}{}{}年{}{}月{}",
+            get_char(TIANGAN, relative_year.rem_euclid(10) as usize).unwrap(),
+            get_char(DIZHI, relative_year.rem_euclid(12) as usize).unwrap(),
+            get_char(SHENGXIAO_S, relative_year.rem_euclid(12) as usize).unwrap(),
+            if self.leap() { "闰" } else { "" },
+            ShortTranslateAdapter(&Month::try_from(self.month()).unwrap(), language),
+            ChineseDay(self.day()),
+        )
     }
 }
