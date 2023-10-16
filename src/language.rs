@@ -75,13 +75,13 @@ impl Display for ChineseDay {
             ),
             11..=19 => write!(
                 f,
-                "十{} ",
+                "十{}",
                 get_char(NUMBER, self.0 as usize - 11).unwrap()
             ),
             20 => write!(f, "二十"),
             21..=29 => write!(
                 f,
-                "廿{} ",
+                "廿{}",
                 get_char(NUMBER, self.0 as usize - 21).unwrap()
             ),
             30 => write!(f, "三十"),
