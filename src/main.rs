@@ -2,12 +2,15 @@ use std::io::IsTerminal;
 
 use anstyle::{AnsiColor, Color, Reset, Style};
 use chrono::{
-    Datelike, Month,
+    Datelike, Month, NaiveDate,
     Weekday::{self, *},
 };
+use clap::{arg, value_parser};
 use nongli::{
     chinese_date::ChineseDate,
-    language::{ChineseDay, Language::*, ShortTranslateAdapter, ChineseMonth},
+    language::{
+        ChineseDay, ChineseMonth, Language::*, ShortTranslateAdapter, Translate, TranslateAdapter,
+    },
 };
 
 pub const CELL_WIDTH: usize = 6;
@@ -48,31 +51,64 @@ impl<'a> std::fmt::Display for Centered<'a> {
 }
 
 fn main() {
+    let matches = clap::command!()
+        .arg(arg!(-C --chinese "Enable Chinese calendar"))
+        .arg(arg!(-c --"no-chinese" "Disable Chinese calendar").conflicts_with("chinese"))
+        .arg(arg!(-M --"start-on-monday" "Start on monday"))
+        .arg(arg!(-n --"no-highlight-today" "Don't highlight today"))
+        .arg(
+            arg!(--color <color> "Whether to enable colors")
+                .value_parser(["always", "auto", "never"]),
+        )
+        .arg(arg!(-y --year <year> "Year").value_parser(value_parser!(u16).range(1900..=2100)))
+        .arg(
+            arg!(-m --month <month> "Month, in number")
+                .value_parser(value_parser!(u8).range(1..=12)),
+        )
+        .get_matches();
+
     let language = if std::env::var("LANG").is_ok_and(|lang| lang.starts_with("zh")) {
-        Chinese
+        ChineseSimplified
     } else {
         English
     };
-    let start_on_monday = std::env::var("START_ON_MONDAY")
-        .is_ok_and(|s| ["", "1", "t", "true", "y", "yes"].contains(&s.as_str()));
+    let start_on_monday = matches.get_flag("start-on-monday");
+    let enable_chinese =
+        matches.get_flag("chinese") || !(matches.get_flag("no-chinese") || language == English);
+
     let start_of_week = if start_on_monday { Mon } else { Sun };
-    let highlight_today = true;
-    let is_terminal = std::io::stdout().is_terminal();
+    let color = match matches.get_one::<String>("color") {
+        Some(s) => match s.to_ascii_lowercase().as_str() {
+            "always" => true,
+            "never" => false,
+            _ => std::io::stdout().is_terminal(),
+        },
+        _ => std::io::stdout().is_terminal(),
+    };
+
     let today = chrono::Local::now().date_naive();
 
-    let title = nongli::language::Title(
-        today.year(),
-        Month::try_from(today.month() as u8).unwrap(),
-        language,
-    )
-    .to_string();
+    let year = matches
+        .get_one::<u16>("year")
+        .copied()
+        .unwrap_or_else(|| today.year() as u16);
+    let month = matches
+        .get_one::<u8>("month")
+        .copied()
+        .unwrap_or_else(|| today.month() as u8);
+    let highlight_today = !matches.get_flag("no-highlight-today")
+        && today.year() == year as i32
+        && today.month() == month as u32;
+
+    let title = nongli::language::Title(year, Month::try_from(month as u8).unwrap())
+        .translate_to_string(language);
     println!("{}", Centered(&title, CELL_WIDTH * 7));
 
-    if is_terminal {
+    if color {
         print!("{}", Style::new().invert().render());
     }
     for weekday in nongli::iter::Weekdays(start_of_week).take(7) {
-        if is_terminal {
+        if color {
             let style = if nongli::is_weekend(weekday) {
                 Style::new().bg_color(Some(WEEKEND_COLOR))
             } else {
@@ -88,36 +124,38 @@ fn main() {
                 CELL_WIDTH
             )
         );
-        if is_terminal {
+        if color {
             print!("{}", Reset.render());
         }
     }
     println!();
 
-    let weekday_of_1st = today.with_day(1).unwrap().weekday();
+    let weekday_of_1st = NaiveDate::from_ymd_opt(year as i32, month as u32, 1)
+        .unwrap()
+        .weekday();
     let mut spaces = if start_on_monday {
         weekday_of_1st.num_days_from_monday()
     } else {
         weekday_of_1st.num_days_from_sunday()
-    } as u8;
-    let mut week_size = 7 - spaces;
+    } as usize;
+    let mut week_size = 7 - spaces as u8;
     let mut start_day = 1u8;
-    let days = nongli::days_of_month(today.year() as u16, today.month() as u8);
+    let days = nongli::days_of_month(year, month);
     while start_day <= days {
         let end_day = (start_day + week_size).min(days + 1);
-        for _ in 0..spaces {
-            print!("    ");
+        for _ in 0..spaces * CELL_WIDTH {
+            print!(" ");
         }
         for day in start_day..end_day {
-            let date = today.with_day(day as u32).unwrap();
-            if is_terminal {
+            let date = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32).unwrap();
+            if color {
                 let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
                 let style = if highlight_today && day == today.day() as u8 {
                     if is_weekend {
-                        Style::new().fg_color(Some(WEEKEND_COLOR))
+                        Style::new().bg_color(Some(WEEKEND_COLOR))
                     } else {
-                        Style::new().invert()
-                    }
+                        Style::new()
+                    }.invert()
                 } else if is_weekend {
                     Style::new().fg_color(Some(WEEKEND_COLOR))
                 } else {
@@ -139,47 +177,58 @@ fn main() {
             }
         }
         println!();
-        for day in start_day..end_day {
-            let date = today.with_day(day as u32).unwrap();
-            let ch_day = ChineseDate::from_gregorian(&date)
-                .map(|ch_date| {
-                    let ch_day = ch_date.day();
-                    if ch_day == 1 {
-                        ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap().to_string()
-                    } else {
-                        ChineseDay::new(ch_day).unwrap().to_string()
-                    }
-                })
-                .unwrap_or_default();
-            if is_terminal {
-                let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-                let style = if highlight_today && day == today.day() as u8 {
-                    if is_weekend {
+        if enable_chinese {
+            for _ in 0..spaces * CELL_WIDTH {
+                print!(" ");
+            }
+            for day in start_day..end_day {
+                let date = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32).unwrap();
+                let ch_day = ChineseDate::from_gregorian(&date)
+                    .map(|ch_date| {
+                        let ch_day = ch_date.day();
+                        if ch_day == 1 {
+                            let ch_month =
+                                ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap();
+                            if language == English {
+                                format!("(M{})", TranslateAdapter(&ch_month, language))
+                            } else {
+                                ch_month.translate_to_string(language)
+                            }
+                        } else {
+                            let ch_day = ChineseDay::new(ch_day).unwrap();
+                            if language == English {
+                                format!("({})", TranslateAdapter(&ch_day, language))
+                            } else {
+                                ch_day.translate_to_string(language)
+                            }
+                        }
+                    })
+                    .unwrap_or_default();
+                if color {
+                    let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
+                    let style = if highlight_today && day == today.day() as u8 {
+                        if is_weekend {
+                            Style::new().fg_color(Some(WEEKEND_COLOR))
+                        } else {
+                            Style::new().invert()
+                        }
+                    } else if is_weekend {
                         Style::new().fg_color(Some(WEEKEND_COLOR))
                     } else {
-                        Style::new().invert()
-                    }
-                } else if is_weekend {
-                    Style::new().fg_color(Some(WEEKEND_COLOR))
-                } else {
-                    Style::new()
-                };
-                print!(
-                    "{}{}{}",
-                    style.render(),
-                    Centered(&ch_day, CELL_WIDTH),
-                    style.render_reset(),
-                );
-            } else {
-                #[allow(clippy::collapsible_if)]
-                if highlight_today && day == today.day() as u8 {
-                    print!("[{}]", Centered(&ch_day, CELL_WIDTH - 1));
+                        Style::new()
+                    };
+                    print!(
+                        "{}{}{}",
+                        style.render(),
+                        Centered(&ch_day, CELL_WIDTH),
+                        style.render_reset(),
+                    );
                 } else {
                     print!("{}", Centered(&ch_day, CELL_WIDTH));
                 }
             }
+            println!();
         }
-        println!();
         start_day = end_day;
         week_size = 7;
         spaces = 0;

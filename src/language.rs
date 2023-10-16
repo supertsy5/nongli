@@ -8,24 +8,39 @@ use Language::*;
 
 use crate::chinese_date::ChineseDate;
 
+pub const TIANGAN_EN: &[&str] = &[
+    "Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui",
+];
 pub const TIANGAN: &str = "甲乙丙丁戊己庚辛壬癸";
 pub const DIZHI: &str = "子丑寅卯辰巳午未申酉戌亥";
+pub const DIZHI_EN: &[&str] = &[
+    "zi", "chou", "yin", "mao", "chen", "si", "wu", "wei", "shen", "you", "xu", "hai",
+];
 pub const SHENGXIAO_S: &str = "鼠牛虎兔龙蛇马羊猴鸡狗猪";
 pub const SHENGXIAO_T: &str = "鼠牛虎兔龍蛇馬羊猴雞狗豬";
+pub const SHENGXIAO_EN: &[&str] = &[
+    "Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat", "Monkey", "Rooster", "Dog",
+    "Pig",
+];
 pub const NUMBER: &str = "一二三四五六七八九十";
 
 pub fn get_char(s: &str, index: usize) -> Option<char> {
     s.get(index * 3..).and_then(|sub| sub.chars().next())
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Language {
-    English,
-    Chinese,
+pub fn get_char_as_str(s: &str, index: usize) -> Option<&str> {
+    s.get(index * 3..index * 3 + 3)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Title(pub i32, pub Month, pub Language);
+pub enum Language {
+    English,
+    ChineseSimplified,
+    ChineseTraditional,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Title(pub u16, pub Month);
 
 #[derive(Clone, Copy, Debug)]
 pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
@@ -44,6 +59,12 @@ pub struct ChineseDay(u8);
 
 pub trait Translate {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
+    fn translate_to_string(&self, language: Language) -> String
+    where
+        Self: Sized,
+    {
+        TranslateAdapter(self, language).to_string()
+    }
 }
 
 pub trait ShortTranslate {
@@ -92,74 +113,85 @@ impl ChineseDay {
     }
 }
 
-impl Display for ChineseYear {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+impl Translate for ChineseYear {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         let relative_year = self.0 as i16 - 1984;
-        write!(
-            f,
-            "{}{}{}年",
-            get_char(TIANGAN, relative_year.rem_euclid(10) as usize).unwrap(),
-            get_char(DIZHI, relative_year.rem_euclid(12) as usize).unwrap(),
-            get_char(SHENGXIAO_S, relative_year.rem_euclid(12) as usize).unwrap(),
-        )
-    }
-}
-
-impl Display for ChineseMonth {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(
-            f,
-            "{}{}月",
-            if self.1 { "闰" } else { "" },
-            match self.0 {
-                1 => "正",
-                2 => "二",
-                3 => "三",
-                4 => "四",
-                5 => "五",
-                6 => "六",
-                7 => "七",
-                8 => "八",
-                9 => "九",
-                10 => "十",
-                11 => "十一",
-                12 => "十二",
-                _ => unreachable!(),
-            },
-        )
-    }
-}
-
-impl Display for ChineseDay {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self.0 {
-            1..=10 => write!(
+        let tiangan = relative_year.rem_euclid(10) as usize;
+        let dizhi = relative_year.rem_euclid(12) as usize;
+        match language {
+            English => write!(
                 f,
-                "初{}",
-                get_char(NUMBER, self.0 as usize - 1).unwrap()
+                "{}{} year of the {}",
+                TIANGAN_EN[tiangan], DIZHI_EN[dizhi], SHENGXIAO_EN[dizhi]
             ),
-            11..=19 => write!(
+            _ => write!(
                 f,
-                "十{}",
-                get_char(NUMBER, self.0 as usize - 11).unwrap()
+                "{}{}{}年",
+                get_char(TIANGAN, tiangan).unwrap(),
+                get_char(DIZHI, dizhi).unwrap(),
+                get_char(
+                    if language == ChineseTraditional {
+                        SHENGXIAO_T
+                    } else {
+                        SHENGXIAO_S
+                    },
+                    dizhi,
+                )
+                .unwrap(),
             ),
-            20 => write!(f, "二十"),
-            21..=29 => write!(
-                f,
-                "廿{}",
-                get_char(NUMBER, self.0 as usize - 21).unwrap()
-            ),
-            30 => write!(f, "三十"),
-            _ => unreachable!(),
         }
     }
 }
 
-impl std::fmt::Display for Title {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.2 {
+impl Translate for ChineseMonth {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        match language {
+            English => write!(f, "{}{}", self.0, if self.1 { "+" } else { "" }),
+            _ => write!(
+                f,
+                "{}{}月",
+                if self.1 {
+                    if language == ChineseTraditional {
+                        "閏"
+                    } else {
+                        "闰"
+                    }
+                } else {
+                    ""
+                },
+                match self.0 {
+                    1 => "正",
+                    2..=10 => get_char_as_str(NUMBER, self.0 as usize - 1).unwrap(),
+                    11 => "十一",
+                    12 => "十二",
+                    _ => unreachable!(),
+                },
+            ),
+        }
+    }
+}
+
+impl Translate for ChineseDay {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        match language {
+            English => self.0.fmt(f),
+            _ => match self.0 {
+                1..=10 => write!(f, "初{}", get_char(NUMBER, self.0 as usize - 1).unwrap()),
+                11..=19 => write!(f, "十{}", get_char(NUMBER, self.0 as usize - 11).unwrap()),
+                20 => write!(f, "二十"),
+                21..=29 => write!(f, "廿{}", get_char(NUMBER, self.0 as usize - 21).unwrap()),
+                30 => write!(f, "三十"),
+                _ => unreachable!(),
+            },
+        }
+    }
+}
+
+impl Translate for Title {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        match language {
             English => write!(f, "{} {}", self.1.name(), self.0),
-            Chinese => write!(f, "{}年  {}", self.0, TranslateAdapter(&self.1, Chinese)),
+            chinese => write!(f, "{}年  {}", self.0, TranslateAdapter(&self.1, chinese)),
         }
     }
 }
@@ -177,7 +209,7 @@ impl ShortTranslate for Month {
             "{}",
             match language {
                 English => self.name(),
-                Chinese => match self {
+                _ => match self {
                     January => "一",
                     February => "二",
                     March => "三",
@@ -212,7 +244,7 @@ impl Translate for Weekday {
                     Sat => "Saturday",
                 }
             ),
-            Chinese => write!(f, "{}", ShortTranslateAdapter(self, language)),
+            _ => write!(f, "{}", ShortTranslateAdapter(self, language)),
         }
     }
 }
@@ -232,7 +264,7 @@ impl ShortTranslate for Weekday {
                     Fri => "Fri",
                     Sat => "Sat",
                 },
-                Chinese => match self {
+                _ => match self {
                     Sun => "日",
                     Mon => "一",
                     Tue => "二",
@@ -256,8 +288,8 @@ impl Translate for ChineseDate {
             get_char(DIZHI, relative_year.rem_euclid(12) as usize).unwrap(),
             get_char(SHENGXIAO_S, relative_year.rem_euclid(12) as usize).unwrap(),
             if self.leap() { "闰" } else { "" },
-            ShortTranslateAdapter(&Month::try_from(self.month()).unwrap(), language),
-            ChineseDay(self.day()),
+            TranslateAdapter(&ChineseMonth(self.month(), self.leap()), language),
+            TranslateAdapter(&ChineseDay(self.day()), language),
         )
     }
 }
