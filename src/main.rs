@@ -1,16 +1,39 @@
 use std::io::IsTerminal;
 
-use anstyle::{AnsiColor, Color, Style};
+use anstyle::{AnsiColor, Color, Style, Reset};
 use chrono::{
     Datelike, Month,
     Weekday::{self, *},
 };
 use nongli::language::{Language::*, ShortTranslate};
 
+pub const CELL_WIDTH: usize = 8;
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
-pub fn printed_width(s: &str) -> usize {
+fn printed_width(s: &str) -> usize {
     s.chars().map(|ch| if (0x4e00..=0x9fff).contains(&(ch as u32)) { 2 } else { 1 }).sum()
+}
+
+struct Centered<'a>(&'a str, usize);
+
+impl<'a> std::fmt::Display for Centered<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let width = printed_width(self.0);
+        if width >= self.1 {
+            return write!(f, "{}", self.0);
+        }
+        let padding_spaces = self.1 - width;
+        let padding_left = padding_spaces / 2;
+        let padding_right = padding_spaces - padding_left;
+        for _ in 0..padding_left {
+            write!(f, " ")?;
+        }
+        write!(f, "{}", self.0)?;
+        for _ in 0..padding_right {
+            write!(f, " ")?;
+        }
+        Ok(())
+    }
 }
 
 fn main() {
@@ -33,30 +56,29 @@ fn main() {
         language
     )
     .to_string();
-    let padding_spaces = (28 - printed_width(&title)) / 2;
-    for _ in 0..padding_spaces {
-        print!(" ");
-    }
-    println!("{title}");
+    println!("{}", Centered(&title, CELL_WIDTH * 7));
 
+    if is_terminal {
+        print!("{}", Style::new().invert().render());
+    }
     for weekday in nongli::iter::Weekdays(start_of_week).take(7) {
-        let mut style = Style::new();
-        if is_terminal && nongli::is_weekend(weekday) {
-            style = style.fg_color(Some(WEEKEND_COLOR));
+        if is_terminal {
+            let style = if nongli::is_weekend(weekday) {
+                Style::new().bg_color(Some(WEEKEND_COLOR))
+            } else {
+                Style::new()
+            }.invert();
             print!("{}", style.render());
         }
-        match language {
-            English => print!("{} ", weekday.short_translate(English)),
-            Chinese => print!(" {} ", weekday.short_translate(Chinese)),
-        }
+        print!("{}", Centered(weekday.short_translate(language), CELL_WIDTH));
         if is_terminal {
-            print!("{}", style.render_reset());
+            print!("{}", Reset.render());
         }
     }
     println!();
 
     let weekday_of_1st = today.with_day(1).unwrap().weekday();
-    let spaces = if start_on_monday {
+    let mut spaces = if start_on_monday {
         weekday_of_1st.num_days_from_monday()
     } else {
         weekday_of_1st.num_days_from_sunday()
@@ -67,30 +89,36 @@ fn main() {
     let days = nongli::days_of_month(today.year() as u16, today.month() as u8) as u32;
     for day in 1..=days {
         let date = today.with_day(day).unwrap();
-        let mut style = Style::new();
         if is_terminal {
             let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-            if is_weekend {
-                style = style.fg_color(Some(WEEKEND_COLOR));
-            }
-            if highlight_today && day == today.day() {
+            let style = if highlight_today && day == today.day() {
                 if is_weekend {
-                    style = style.bg_color(Some(Color::Ansi(AnsiColor::White)));
+                    Style::new().fg_color(Some(WEEKEND_COLOR))
                 } else {
-                    style = style.invert();
+                    Style::new().invert()
                 }
-            }
-            print!("{} {day:2} {}", style.render(), style.render_reset());
+            } else if is_weekend {
+                Style::new().fg_color(Some(WEEKEND_COLOR))
+            } else {
+                Style::new()
+            };
+            print!("{}{day:^2$}{}", style.render(), style.render_reset(), CELL_WIDTH);
         } else {
             #[allow(clippy::collapsible_if)]
             if highlight_today && day == today.day() {
-                print!("[{day:2}]");
+                print!("[{day:^0$}]", CELL_WIDTH - 2);
             } else {
-                print!(" {day:2} ");
+                print!("{day:^0$}", CELL_WIDTH);
             }
         }
         if date.weekday() == end_of_week {
             println!();
+            if spaces > 0 {
+                for _ in 0..spaces {
+                    print!("    ");
+                }
+                spaces = 0;
+            }
         }
     }
     println!();
