@@ -33,7 +33,13 @@ pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
 #[derive(Clone, Copy, Debug)]
 pub struct ShortTranslateAdapter<'a, T: ShortTranslate>(pub &'a T, pub Language);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug)]
+pub struct ChineseYear(u16);
+
+#[derive(Clone, Copy, Debug)]
+pub struct ChineseMonth(u8, bool);
+
+#[derive(Clone, Copy, Debug)]
 pub struct ChineseDay(u8);
 
 pub trait Translate {
@@ -56,12 +62,71 @@ impl<'a, T: ShortTranslate> Display for ShortTranslateAdapter<'a, T> {
     }
 }
 
+impl ChineseYear {
+    pub fn new(year: u16) -> Option<Self> {
+        (1900..=2100).contains(&year).then_some(Self(year))
+    }
+    pub fn get(self) -> u16 {
+        self.0
+    }
+}
+
+impl ChineseMonth {
+    pub fn new(month: u8, leap: bool) -> Option<Self> {
+        (1..=12).contains(&month).then_some(Self(month, leap))
+    }
+    pub fn month(self) -> u8 {
+        self.0
+    }
+    pub fn leap(self) -> bool {
+        self.1
+    }
+}
+
 impl ChineseDay {
     pub fn new(day: u8) -> Option<Self> {
         (1..=30).contains(&day).then_some(Self(day))
     }
     pub fn get(self) -> u8 {
         self.0
+    }
+}
+
+impl Display for ChineseYear {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let relative_year = self.0 as i16 - 1984;
+        write!(
+            f,
+            "{}{}{}年",
+            get_char(TIANGAN, relative_year.rem_euclid(10) as usize).unwrap(),
+            get_char(DIZHI, relative_year.rem_euclid(12) as usize).unwrap(),
+            get_char(SHENGXIAO_S, relative_year.rem_euclid(12) as usize).unwrap(),
+        )
+    }
+}
+
+impl Display for ChineseMonth {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "{}{}月",
+            if self.1 { "闰" } else { "" },
+            match self.0 {
+                1 => "正",
+                2 => "二",
+                3 => "三",
+                4 => "四",
+                5 => "五",
+                6 => "六",
+                7 => "七",
+                8 => "八",
+                9 => "九",
+                10 => "十",
+                11 => "十一",
+                12 => "十二",
+                _ => unreachable!(),
+            },
+        )
     }
 }
 

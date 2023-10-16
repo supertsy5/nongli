@@ -7,10 +7,10 @@ use chrono::{
 };
 use nongli::{
     chinese_date::ChineseDate,
-    language::{ChineseDay, Language::*, ShortTranslateAdapter},
+    language::{ChineseDay, Language::*, ShortTranslateAdapter, ChineseMonth},
 };
 
-pub const CELL_WIDTH: usize = 8;
+pub const CELL_WIDTH: usize = 6;
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 fn printed_width(s: &str) -> usize {
@@ -142,8 +142,14 @@ fn main() {
         for day in start_day..end_day {
             let date = today.with_day(day as u32).unwrap();
             let ch_day = ChineseDate::from_gregorian(&date)
-                .and_then(|ch_date| ChineseDay::new(ch_date.day()))
-                .map(|day| day.to_string())
+                .map(|ch_date| {
+                    let ch_day = ch_date.day();
+                    if ch_day == 1 {
+                        ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap().to_string()
+                    } else {
+                        ChineseDay::new(ch_day).unwrap().to_string()
+                    }
+                })
                 .unwrap_or_default();
             if is_terminal {
                 let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
