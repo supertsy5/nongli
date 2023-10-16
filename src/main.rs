@@ -1,6 +1,6 @@
 use std::io::IsTerminal;
 
-use anstyle::{AnsiColor, Color, Style, Reset};
+use anstyle::{AnsiColor, Color, Reset, Style};
 use chrono::{
     Datelike, Month,
     Weekday::{self, *},
@@ -11,7 +11,15 @@ pub const CELL_WIDTH: usize = 8;
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 fn printed_width(s: &str) -> usize {
-    s.chars().map(|ch| if (0x4e00..=0x9fff).contains(&(ch as u32)) { 2 } else { 1 }).sum()
+    s.chars()
+        .map(|ch| {
+            if (0x4e00..=0x9fff).contains(&(ch as u32)) {
+                2
+            } else {
+                1
+            }
+        })
+        .sum()
 }
 
 struct Centered<'a>(&'a str, usize);
@@ -53,7 +61,7 @@ fn main() {
     let title = nongli::language::Title(
         today.year(),
         Month::try_from(today.month() as u8).unwrap(),
-        language
+        language,
     )
     .to_string();
     println!("{}", Centered(&title, CELL_WIDTH * 7));
@@ -67,10 +75,14 @@ fn main() {
                 Style::new().bg_color(Some(WEEKEND_COLOR))
             } else {
                 Style::new()
-            }.invert();
+            }
+            .invert();
             print!("{}", style.render());
         }
-        print!("{}", Centered(weekday.short_translate(language), CELL_WIDTH));
+        print!(
+            "{}",
+            Centered(weekday.short_translate(language), CELL_WIDTH)
+        );
         if is_terminal {
             print!("{}", Reset.render());
         }
@@ -102,7 +114,12 @@ fn main() {
             } else {
                 Style::new()
             };
-            print!("{}{day:^2$}{}", style.render(), style.render_reset(), CELL_WIDTH);
+            print!(
+                "{}{day:^2$}{}",
+                style.render(),
+                style.render_reset(),
+                CELL_WIDTH
+            );
         } else {
             #[allow(clippy::collapsible_if)]
             if highlight_today && day == today.day() {
