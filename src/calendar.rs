@@ -1,15 +1,15 @@
 use anstyle::{AnsiColor, Color, Style};
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use chrono::{
-    Datelike, NaiveDate,
-    Weekday::{self, Mon, Sun}, Month,
+    Datelike, Month, NaiveDate,
+    Weekday::{self, Mon, Sun},
 };
 
 use crate::{
     chinese_date::ChineseDate,
     language::{
-        ChineseDay, ChineseMonth,
+        ChineseDay, ChineseMonth, ChineseYear,
         Language::{self, *},
         ShortTranslateAdapter, Translate, TranslateAdapter,
     },
@@ -67,10 +67,7 @@ impl<'a> std::fmt::Display for Centered<'a> {
     }
 }
 
-pub fn write_week_line(
-    options: &Options,
-    f: &mut Formatter,
-) -> FmtResult {
+pub fn write_week_line(options: &Options, f: &mut Formatter) -> FmtResult {
     for weekday in crate::iter::Weekdays(if options.start_on_monday { Mon } else { Sun }).take(7) {
         let adapter = ShortTranslateAdapter(&weekday, options.language).to_string();
         let centered = Centered(&adapter, CELL_WIDTH);
@@ -208,8 +205,14 @@ pub fn write_basic_month_calendar(
 
 impl Display for MonthCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let title = crate::language::Title(self.year, self.month)
+        let mut title = crate::language::Title(self.year, self.month)
             .translate_to_string(self.options.language);
+        if self.options.enable_chinese {
+            title.write_fmt(format_args!(
+                " {}",
+                TranslateAdapter(&ChineseYear(self.year), self.options.language)
+            ))?;
+        }
         writeln!(f, "{}", Centered(&title, CELL_WIDTH * 7))?;
         write_week_line(&self.options, f)?;
         writeln!(f)?;

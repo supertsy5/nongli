@@ -49,13 +49,13 @@ pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
 pub struct ShortTranslateAdapter<'a, T: ShortTranslate>(pub &'a T, pub Language);
 
 #[derive(Clone, Copy, Debug)]
-pub struct ChineseYear(u16);
+pub struct ChineseYear(pub u16);
 
 #[derive(Clone, Copy, Debug)]
-pub struct ChineseMonth(u8, bool);
+pub struct ChineseMonth(pub u8, pub bool);
 
 #[derive(Clone, Copy, Debug)]
-pub struct ChineseDay(u8);
+pub struct ChineseDay(pub u8);
 
 pub trait Translate {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
@@ -121,7 +121,7 @@ impl Translate for ChineseYear {
         match language {
             English => write!(
                 f,
-                "{}{} year of the {}",
+                "{}{} Year of the {}",
                 TIANGAN_EN[tiangan], DIZHI_EN[dizhi], SHENGXIAO_EN[dizhi]
             ),
             _ => write!(
@@ -191,7 +191,7 @@ impl Translate for Title {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         match language {
             English => write!(f, "{} {}", self.1.name(), self.0),
-            chinese => write!(f, "{}年  {}", self.0, TranslateAdapter(&self.1, chinese)),
+            chinese => write!(f, "{}年 {}", self.0, TranslateAdapter(&self.1, chinese)),
         }
     }
 }
