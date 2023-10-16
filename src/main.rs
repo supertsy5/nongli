@@ -5,7 +5,7 @@ use chrono::{
     Datelike, Month,
     Weekday::{self, *},
 };
-use nongli::language::{Language::*, ShortTranslate};
+use nongli::language::{Language::*, ShortTranslateAdapter};
 
 pub const CELL_WIDTH: usize = 8;
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
@@ -53,7 +53,6 @@ fn main() {
     let start_on_monday = std::env::var("START_ON_MONDAY")
         .is_ok_and(|s| ["", "1", "t", "true", "y", "yes"].contains(&s.as_str()));
     let start_of_week = if start_on_monday { Mon } else { Sun };
-    let end_of_week = start_of_week.pred();
     let highlight_today = true;
     let is_terminal = std::io::stdout().is_terminal();
     let today = chrono::Local::now().date_naive();
@@ -81,7 +80,7 @@ fn main() {
         }
         print!(
             "{}",
-            Centered(weekday.short_translate(language), CELL_WIDTH)
+            Centered(&ShortTranslateAdapter(&weekday, language).to_string(), CELL_WIDTH)
         );
         if is_terminal {
             print!("{}", Reset.render());
@@ -94,49 +93,79 @@ fn main() {
         weekday_of_1st.num_days_from_monday()
     } else {
         weekday_of_1st.num_days_from_sunday()
-    };
-    for _ in 0..spaces {
-        print!("    ");
-    }
-    let days = nongli::days_of_month(today.year() as u16, today.month() as u8) as u32;
-    for day in 1..=days {
-        let date = today.with_day(day).unwrap();
-        if is_terminal {
-            let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-            let style = if highlight_today && day == today.day() {
-                if is_weekend {
+    } as u8;
+    let mut week_size = 7 - spaces;
+    let mut start_day = 1u8;
+    let days = nongli::days_of_month(today.year() as u16, today.month() as u8);
+    while start_day <= days {
+        let end_day = (start_day + week_size).min(days + 1);
+        for _ in 0..spaces {
+            print!("    ");
+        }
+        for day in start_day..end_day {
+            let date = today.with_day(day as u32).unwrap();
+            if is_terminal {
+                let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
+                let style = if highlight_today && day == today.day() as u8 {
+                    if is_weekend {
+                        Style::new().fg_color(Some(WEEKEND_COLOR))
+                    } else {
+                        Style::new().invert()
+                    }
+                } else if is_weekend {
                     Style::new().fg_color(Some(WEEKEND_COLOR))
                 } else {
-                    Style::new().invert()
+                    Style::new()
+                };
+                print!(
+                    "{}{day:^2$}{}",
+                    style.render(),
+                    style.render_reset(),
+                    CELL_WIDTH
+                );
+            } else {
+                #[allow(clippy::collapsible_if)]
+                if highlight_today && day == today.day() as u8 {
+                    print!("[{day:^0$}]", CELL_WIDTH - 2);
+                } else {
+                    print!("{day:^0$}", CELL_WIDTH);
                 }
-            } else if is_weekend {
-                Style::new().fg_color(Some(WEEKEND_COLOR))
-            } else {
-                Style::new()
-            };
-            print!(
-                "{}{day:^2$}{}",
-                style.render(),
-                style.render_reset(),
-                CELL_WIDTH
-            );
-        } else {
-            #[allow(clippy::collapsible_if)]
-            if highlight_today && day == today.day() {
-                print!("[{day:^0$}]", CELL_WIDTH - 2);
-            } else {
-                print!("{day:^0$}", CELL_WIDTH);
             }
         }
-        if date.weekday() == end_of_week {
-            println!();
-            if spaces > 0 {
-                for _ in 0..spaces {
-                    print!("    ");
+        println!();
+        for day in start_day..end_day {
+            let date = today.with_day(day as u32).unwrap();
+            if is_terminal {
+                let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
+                let style = if highlight_today && day == today.day() as u8 {
+                    if is_weekend {
+                        Style::new().fg_color(Some(WEEKEND_COLOR))
+                    } else {
+                        Style::new().invert()
+                    }
+                } else if is_weekend {
+                    Style::new().fg_color(Some(WEEKEND_COLOR))
+                } else {
+                    Style::new()
+                };
+                print!(
+                    "{}{day:^2$}{}",
+                    style.render(),
+                    style.render_reset(),
+                    CELL_WIDTH
+                );
+            } else {
+                #[allow(clippy::collapsible_if)]
+                if highlight_today && day == today.day() as u8 {
+                    print!("[{day:^0$}]", CELL_WIDTH - 2);
+                } else {
+                    print!("{day:^0$}", CELL_WIDTH);
                 }
-                spaces = 0;
             }
         }
+        println!();
+        start_day = end_day;
+        week_size = 7;
+        spaces = 0;
     }
-    println!();
 }
