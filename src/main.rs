@@ -10,8 +10,11 @@ use nongli::{
 fn cmd() -> Command {
     clap::command!()
         .arg(arg!(-'3' --triple "Display the preceding, active and following month"))
-        .arg(arg!(-C --chinese "Enable Chinese calendar"))
-        .arg(arg!(-c --"no-chinese" "Disable Chinese calendar").conflicts_with("chinese"))
+        .arg(
+            arg!(-c --chinese [chinese] "Whether to enable Chinese calendar")
+                .value_parser(["always", "auto", "never"])
+                .default_missing_value("always")
+        )
         .arg(arg!(-M --"start-on-monday" "Start on monday"))
         .arg(arg!(-n --"no-highlight-today" "Don't highlight today"))
         .arg(
@@ -69,15 +72,21 @@ fn main() {
     };
     let triple = matches.get_flag("triple");
     let start_on_monday = matches.get_flag("start-on-monday");
-    let enable_chinese =
-        matches.get_flag("chinese") || !(matches.get_flag("no-chinese") || language == English);
+    let enable_chinese = match matches.get_one::<String>("chinese") {
+        Some(s) => match s.as_str() {
+            "always" => true,
+            "never" => false,
+            _ => language != English,
+        }
+        _ => language != English,
+    };
     let color = match matches.get_one::<String>("color") {
-        Some(s) => match s.to_ascii_lowercase().as_str() {
+        Some(s) => match s.as_str() {
             "always" => true,
             "never" => false,
             _ => std::io::stdout().is_terminal(),
         },
-        _ => std::io::stdout().is_terminal(),
+        None => std::io::stdout().is_terminal(),
     };
     let highlight_today = !matches.get_flag("no-highlight-today");
     let landscape = matches.get_flag("landscape");

@@ -461,13 +461,14 @@ impl Display for YearCalendar {
         use Month::*;
         let options = self.options;
         let language = options.language;
-        let month_width = options.cell_width() * 7;
+        let cell_width = options.cell_width();
+        let month_width = cell_width * 7;
         writeln!(
             f,
             "{}",
             Centered(
                 YearTitle(self.year, options.enable_chinese).translate_to_string(options.language),
-                options.cell_width() * 21 + 2,
+                if self.landscape { cell_width * 28 + 3 } else { cell_width * 21 + 2},
             )
         )?;
         if self.landscape {

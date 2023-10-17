@@ -220,7 +220,11 @@ impl Translate for YearTitle {
 
 impl Translate for Month {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}月", ShortTranslateAdapter(self, language))
+        if language == English {
+            self.short_translate(language, f)
+        } else {
+            write!(f, "{}月", ShortTranslateAdapter(self, language))
+        }
     }
 }
 
