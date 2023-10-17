@@ -23,10 +23,13 @@ fn cmd() -> Command {
             arg!(-l --landscape "Show full-year calendar in 3 rows and 4 columns")
                 .conflicts_with("month"),
         )
-        .arg(arg!(-L --list "Show the calendar in a list"))
         .arg(
             arg!(-p --portrait "Show full-year calendar in 4 rows and 3 columns")
                 .conflicts_with_all(["month", "landscape"]),
+        )
+        .arg(
+            arg!(-L --list "Show the calendar in a list")
+                .conflicts_with_all(["landscape", "portrait"])
         )
         .arg(
             arg!(--color <color> "Whether to enable colors")
@@ -127,7 +130,16 @@ fn main() {
                 options,
             };
             if list {
-                print!("{}", ListCalendar(calendar));
+                if triple {
+                    print!(
+                        "{}\n{}\n{}",
+                        ListCalendar(calendar.pred()),
+                        ListCalendar(calendar),
+                        ListCalendar(calendar.succ()),
+                    )
+                } else {
+                    print!("{}", ListCalendar(calendar));
+                }
             } else if triple {
                 print!("{}", TripleCalendar(calendar.pred()));
             } else {

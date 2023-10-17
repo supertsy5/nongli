@@ -411,9 +411,9 @@ impl Display for ListCalendar {
             && self.0.month.number_from_month() == self.0.today.month();
         writeln!(
             f,
-            "{}\n----------------------------------------------------------------",
+            "{}:",
             TranslateAdapter(
-                &MonthTitle(self.0.year, self.0.month, self.0.options.enable_chinese),
+                &MonthTitle(self.0.year, self.0.month, options.enable_chinese),
                 self.0.options.language
             )
         )?;
