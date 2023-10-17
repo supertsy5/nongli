@@ -10,6 +10,15 @@ pub struct ChineseDate {
     day: u8,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ChineseYear(pub u16);
+
+#[derive(Clone, Copy, Debug)]
+pub struct ChineseMonth(pub u8, pub bool);
+
+#[derive(Clone, Copy, Debug)]
+pub struct ChineseDay(pub u8);
+
 pub fn data(year: u16) -> Option<u32> {
     (1900..=2100)
         .contains(&year)
@@ -131,6 +140,15 @@ impl ChineseDate {
     pub fn day(&self) -> u8 {
         self.day
     }
+    pub fn chinese_year(&self) -> ChineseYear {
+        ChineseYear(self.year)
+    }
+    pub fn chinese_month(&self) -> ChineseMonth {
+        ChineseMonth(self.month, self.leap)
+    }
+    pub fn chinese_day(&self) -> ChineseDay {
+        ChineseDay(self.day)
+    }
     pub fn ordinal(&self) -> u16 {
         let mut ord = 0u16;
         let leap_month = leap_month(self.year);
@@ -159,6 +177,36 @@ impl ChineseDate {
             self.year as i32 + 1
         };
         NaiveDate::from_yo_opt(year, ordinal as u32).unwrap()
+    }
+}
+
+impl ChineseYear {
+    pub fn new(year: u16) -> Option<Self> {
+        (1900..=2100).contains(&year).then_some(Self(year))
+    }
+    pub fn get(self) -> u16 {
+        self.0
+    }
+}
+
+impl ChineseMonth {
+    pub fn new(month: u8, leap: bool) -> Option<Self> {
+        (1..=12).contains(&month).then_some(Self(month, leap))
+    }
+    pub fn month(self) -> u8 {
+        self.0
+    }
+    pub fn leap(self) -> bool {
+        self.1
+    }
+}
+
+impl ChineseDay {
+    pub fn new(day: u8) -> Option<Self> {
+        (1..=30).contains(&day).then_some(Self(day))
+    }
+    pub fn get(self) -> u8 {
+        self.0
     }
 }
 

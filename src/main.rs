@@ -3,7 +3,9 @@ use std::io::IsTerminal;
 use chrono::{Datelike, Month};
 use clap::{arg, value_parser, Command};
 use nongli::{
-    calendar::{BasicMonthCalendar, MonthCalendar, Options, TripleCalendar, YearCalendar},
+    calendar::{
+        BasicMonthCalendar, ListCalendar, MonthCalendar, Options, TripleCalendar, YearCalendar,
+    },
     language::Language::*,
 };
 
@@ -13,17 +15,18 @@ fn cmd() -> Command {
         .arg(
             arg!(-c --chinese [chinese] "Whether to enable Chinese calendar")
                 .value_parser(["always", "auto", "never"])
-                .default_missing_value("always")
+                .default_missing_value("always"),
         )
         .arg(arg!(-M --"start-on-monday" "Start on monday"))
         .arg(arg!(-n --"no-highlight-today" "Don't highlight today"))
         .arg(
             arg!(-l --landscape "Show full-year calendar in 3 rows and 4 columns")
-                .conflicts_with("month")
+                .conflicts_with("month"),
         )
+        .arg(arg!(-L --list "Show the calendar in a list"))
         .arg(
             arg!(-p --portrait "Show full-year calendar in 4 rows and 3 columns")
-                .conflicts_with_all(["month", "landscape"])
+                .conflicts_with_all(["month", "landscape"]),
         )
         .arg(
             arg!(--color <color> "Whether to enable colors")
@@ -77,7 +80,7 @@ fn main() {
             "always" => true,
             "never" => false,
             _ => language != English,
-        }
+        },
         _ => language != English,
     };
     let color = match matches.get_one::<String>("color") {
@@ -91,8 +94,12 @@ fn main() {
     let highlight_today = !matches.get_flag("no-highlight-today");
     let landscape = matches.get_flag("landscape");
     let portrait = matches.get_flag("portrait");
+    let list = matches.get_flag("list");
 
-    let today = chrono::Local::now().date_naive();
+    let today = std::env::var("TODAY")
+        .ok()
+        .and_then(|string| chrono::NaiveDate::parse_from_str(&string, "%Y-%m-%d").ok())
+        .unwrap_or_else(|| chrono::Local::now().date_naive());
 
     let options = Options {
         language,
@@ -119,7 +126,9 @@ fn main() {
                 today,
                 options,
             };
-            if triple {
+            if list {
+                print!("{}", ListCalendar(calendar));
+            } else if triple {
                 print!("{}", TripleCalendar(calendar.pred()));
             } else {
                 print!("{}", MonthCalendar(calendar));

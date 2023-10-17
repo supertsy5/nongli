@@ -6,7 +6,7 @@ use chrono::{
 };
 use Language::*;
 
-use crate::chinese_date::ChineseDate;
+use crate::chinese_date::{ChineseDate, ChineseDay, ChineseMonth, ChineseYear};
 
 pub const TIANGAN_EN: &[&str] = &[
     "Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui",
@@ -51,15 +51,6 @@ pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
 #[derive(Clone, Copy, Debug)]
 pub struct ShortTranslateAdapter<'a, T: ShortTranslate>(pub &'a T, pub Language);
 
-#[derive(Clone, Copy, Debug)]
-pub struct ChineseYear(pub u16);
-
-#[derive(Clone, Copy, Debug)]
-pub struct ChineseMonth(pub u8, pub bool);
-
-#[derive(Clone, Copy, Debug)]
-pub struct ChineseDay(pub u8);
-
 pub trait Translate {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
     fn translate_to_string(&self, language: Language) -> String
@@ -83,36 +74,6 @@ impl<'a, T: Translate> Display for TranslateAdapter<'a, T> {
 impl<'a, T: ShortTranslate> Display for ShortTranslateAdapter<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.0.short_translate(self.1, f)
-    }
-}
-
-impl ChineseYear {
-    pub fn new(year: u16) -> Option<Self> {
-        (1900..=2100).contains(&year).then_some(Self(year))
-    }
-    pub fn get(self) -> u16 {
-        self.0
-    }
-}
-
-impl ChineseMonth {
-    pub fn new(month: u8, leap: bool) -> Option<Self> {
-        (1..=12).contains(&month).then_some(Self(month, leap))
-    }
-    pub fn month(self) -> u8 {
-        self.0
-    }
-    pub fn leap(self) -> bool {
-        self.1
-    }
-}
-
-impl ChineseDay {
-    pub fn new(day: u8) -> Option<Self> {
-        (1..=30).contains(&day).then_some(Self(day))
-    }
-    pub fn get(self) -> u8 {
-        self.0
     }
 }
 
@@ -270,7 +231,7 @@ impl Translate for Weekday {
                     Sat => "Saturday",
                 }
             ),
-            _ => write!(f, "{}", ShortTranslateAdapter(self, language)),
+            _ => write!(f, "星期{}", ShortTranslateAdapter(self, language)),
         }
     }
 }

@@ -7,9 +7,9 @@ use chrono::{
 };
 
 use crate::{
-    chinese_date::ChineseDate,
+    chinese_date::{ChineseDate, ChineseDay, ChineseMonth},
+    days_of_month, is_weekend,
     language::{
-        ChineseDay, ChineseMonth,
         Language::{self, *},
         MonthTitle, ShortTranslateAdapter, Translate, TranslateAdapter, YearTitle,
     },
@@ -54,6 +54,9 @@ pub struct BasicMonthCalendar {
     pub today: NaiveDate,
     pub options: Options,
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct ListCalendar(pub BasicMonthCalendar);
 
 #[derive(Clone, Copy, Debug)]
 pub struct MonthCalendar(pub BasicMonthCalendar);
@@ -184,12 +187,12 @@ impl Display for TripleWeekLine {
         if self.0.color {
             write!(
                 f,
-                "{0}{1}|{0}{1}|{0}",
+                "{0}{1} {0}{1} {0}",
                 WeekLine(self.0),
                 Style::new().invert().render()
             )
         } else {
-            write!(f, "{0}|{0}|{0}", WeekLine(self.0))
+            write!(f, "{0} {0} {0}", WeekLine(self.0))
         }
     }
 }
@@ -199,15 +202,9 @@ impl Display for QuadWeekLine {
         let triple = TripleWeekLine(self.0);
         let single = WeekLine(self.0);
         if self.0.color {
-            write!(
-                f,
-                "{}{}|{}",
-                triple,
-                Style::new().invert().render(),
-                single,
-            )
+            write!(f, "{}{} {}", triple, Style::new().invert().render(), single,)
         } else {
-            write!(f, "{}|{}", triple, single)
+            write!(f, "{} {}", triple, single)
         }
     }
 }
@@ -221,12 +218,12 @@ impl Display for BasicMonthCalendar {
             options,
         } = *self;
         let cell_width = self.options.cell_width();
-        let month = month.number_from_month() as u8;
-        let days = crate::days_of_month(year, month);
-        let highlight_today =
-            options.highlight_today && year == today.year() as u16 && month == today.month() as u8;
+        let days = days_of_month(year, month);
+        let highlight_today = options.highlight_today
+            && year == today.year() as u16
+            && month.number_from_month() == today.month();
 
-        let weekday_of_1st = NaiveDate::from_ymd_opt(year as i32, month as u32, 1)
+        let weekday_of_1st = NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), 1)
             .unwrap()
             .weekday();
 
@@ -250,7 +247,9 @@ impl Display for BasicMonthCalendar {
                 }
             }
             for day in start_day..end_day {
-                let date = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32).unwrap();
+                let date =
+                    NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), day as u32)
+                        .unwrap();
                 if options.color {
                     let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
                     let style = if highlight_today && day == today.day() as u8 {
@@ -295,7 +294,8 @@ impl Display for BasicMonthCalendar {
                 }
                 for day in start_day..end_day {
                     let date =
-                        NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32).unwrap();
+                        NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), day as u32)
+                            .unwrap();
                     let (ch_day, is_new_month) = ChineseDate::from_gregorian(&date)
                         .map(|ch_date| {
                             let ch_day = ch_date.day();
@@ -388,6 +388,86 @@ impl Display for MonthCalendar {
     }
 }
 
+impl Display for ListCalendar {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let options = self.0.options;
+        let highlight_today = options.highlight_today
+            && self.0.year as i32 == self.0.today.year()
+            && self.0.month.number_from_month() == self.0.today.month();
+        writeln!(
+            f,
+            "{}\n----------------------------------------------------------------",
+            TranslateAdapter(
+                &MonthTitle(self.0.year, self.0.month, self.0.options.enable_chinese),
+                self.0.options.language
+            )
+        )?;
+        for day in 1..=days_of_month(self.0.year, self.0.month) {
+            let date = NaiveDate::from_ymd_opt(
+                self.0.year as i32,
+                self.0.month.number_from_month(),
+                day as u32,
+            )
+            .unwrap();
+            let is_today = highlight_today && self.0.today.day() == day as u32;
+            let weekday = date.weekday();
+            let weekend = is_weekend(weekday);
+            let weekday_string = weekday.translate_to_string(options.language);
+            let mut style = Style::new();
+            if options.color {
+                if weekend {
+                    if is_today {
+                        style = style.bg_color(Some(Color::Ansi(AnsiColor::White)));
+                    }
+                    style = style.fg_color(Some(WEEKEND_COLOR));
+                } else if is_today {
+                    style = style.invert();
+                }
+                write!(f, "{}{:<8}{:12}", style.render(), day, weekday_string,)
+            } else {
+                write!(
+                    f,
+                    "{}{}{}{}",
+                    if is_today { '[' } else { ' ' },
+                    day,
+                    weekday_string,
+                    if is_today { ']' } else { ' ' }
+                )
+            }?;
+            if options.enable_chinese {
+                if let Some(chinese_date) = ChineseDate::from_gregorian(&date) {
+                    if options.color && chinese_date.day() == 1 {
+                        write!(f, "{}", style.render_reset())?;
+                        style = Style::new().fg_color(Some(NEW_MONTH_COLOR));
+                        if is_today {
+                            style = style.bg_color(Some(Color::Ansi(AnsiColor::White)));
+                        }
+                        write!(f, "{}", style.render())?;
+                    }
+                    if options.language == English {
+                        write!(
+                            f,
+                            "{:02}{}{:02}",
+                            chinese_date.month(),
+                            if chinese_date.leap() { '+' } else { '-' },
+                            chinese_date.day(),
+                        )
+                    } else {
+                        write!(
+                            f,
+                            "{}{}",
+                            TranslateAdapter(&chinese_date.chinese_month(), options.language),
+                            TranslateAdapter(&chinese_date.chinese_day(), options.language),
+                        )
+                    }?;
+                }
+            }
+            writeln!(f, "{}", style.render_reset())?;
+        }
+        Ok(())
+    }
+}
+
 impl Display for BasicTripleCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let calendar1 = self.0.succ();
@@ -413,8 +493,8 @@ impl Display for BasicQuadCalendar {
         let calendar1 = self.0.succ();
         let calendar2 = calendar1.succ();
         let calendar3 = calendar2.succ();
-        let strings = [self.0, calendar1, calendar2, calendar3]
-            .map(|calendar| calendar.to_string());
+        let strings =
+            [self.0, calendar1, calendar2, calendar3].map(|calendar| calendar.to_string());
         let mut separator = String::new();
         for _ in 0..if self.0.options.enable_chinese { 12 } else { 6 } {
             separator.push_str(" \n");
@@ -468,7 +548,11 @@ impl Display for YearCalendar {
             "{}",
             Centered(
                 YearTitle(self.year, options.enable_chinese).translate_to_string(options.language),
-                if self.landscape { cell_width * 28 + 3 } else { cell_width * 21 + 2},
+                if self.landscape {
+                    cell_width * 28 + 3
+                } else {
+                    cell_width * 21 + 2
+                },
             )
         )?;
         if self.landscape {
