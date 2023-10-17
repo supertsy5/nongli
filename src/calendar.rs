@@ -1,4 +1,4 @@
-use anstyle::{AnsiColor, Color, Style, Reset};
+use anstyle::{AnsiColor, Color, Reset, Style};
 use std::fmt::{Display, Formatter, Result as FmtResult, Write};
 
 use chrono::{
@@ -15,13 +15,17 @@ use crate::{
     },
 };
 
-pub const CELL_WIDTH: usize = 6;
+pub const CELL_WIDTH_WITH_CHINESE: usize = 6;
+pub const CELL_WIDTH_WITHOUT_CHINESE: usize = 4;
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 #[derive(Clone, Copy, Debug)]
 pub struct Centered<'a>(pub &'a str, pub usize);
 #[derive(Clone, Copy, Debug)]
 pub struct ZipByLine<'a>(pub &'a [&'a str]);
+
+#[derive(Clone, Copy, Debug)]
+pub struct WeekLine(Options);
 
 #[derive(Clone, Copy, Debug)]
 pub struct MonthCalendar {
@@ -32,7 +36,17 @@ pub struct MonthCalendar {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct BasicCalendar(pub MonthCalendar);
+
+#[derive(Clone, Copy, Debug)]
 pub struct TripleCalendar(pub MonthCalendar);
+
+#[derive(Clone, Copy, Debug)]
+pub struct YearCalendar {
+    pub year: u16,
+    pub today: NaiveDate,
+    pub options: Options,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Options {
@@ -53,6 +67,16 @@ fn rendered_width(s: &str) -> usize {
             }
         })
         .sum()
+}
+
+impl Options {
+    pub fn cell_width(&self) -> usize {
+        if self.enable_chinese {
+            CELL_WIDTH_WITH_CHINESE
+        } else {
+            CELL_WIDTH_WITHOUT_CHINESE
+        }
+    }
 }
 
 impl MonthCalendar {
@@ -112,23 +136,26 @@ impl<'a> Display for ZipByLine<'a> {
     }
 }
 
-pub fn write_week_line(options: &Options, f: &mut Formatter) -> FmtResult {
-    for weekday in crate::iter::Weekdays(if options.start_on_monday { Mon } else { Sun }).take(7) {
-        let adapter = ShortTranslateAdapter(&weekday, options.language).to_string();
-        let centered = Centered(&adapter, CELL_WIDTH);
-        if options.color {
-            let style = if crate::is_weekend(weekday) {
-                Style::new().bg_color(Some(WEEKEND_COLOR))
+impl Display for WeekLine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        for weekday in crate::iter::Weekdays(if self.0.start_on_monday { Mon } else { Sun })
+            .take(7) {
+            let adapter = ShortTranslateAdapter(&weekday, self.0.language).to_string();
+            let centered = Centered(&adapter, self.0.cell_width());
+            if self.0.color {
+                let style = if crate::is_weekend(weekday) {
+                    Style::new().bg_color(Some(WEEKEND_COLOR))
+                } else {
+                    Style::new()
+                }
+                .invert();
+                write!(f, "{}{}{}", style.render(), centered, style.render_reset())
             } else {
-                Style::new()
-            }
-            .invert();
-            write!(f, "{}{}{}", style.render(), centered, style.render_reset())
-        } else {
-            write!(f, "{centered}")
-        }?;
+                write!(f, "{centered}")
+            }?;
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 pub fn write_basic_month_calendar(
@@ -138,24 +165,33 @@ pub fn write_basic_month_calendar(
     options: &Options,
     f: &mut Formatter,
 ) -> FmtResult {
+    let cell_width = options.cell_width();
     let month = month.number_from_month() as u8;
     let days = crate::days_of_month(year, month);
+    let highlight_today = options.highlight_today
+        && year == today.year() as u16
+        && month == today.month() as u8;
+
     let weekday_of_1st = NaiveDate::from_ymd_opt(year as i32, month as u32, 1)
         .unwrap()
         .weekday();
+
     let leading_spaces = if options.start_on_monday {
         weekday_of_1st.num_days_from_monday()
     } else {
         weekday_of_1st.num_days_from_sunday()
     } as u8;
+
     let trailing_spaces = (7 - (days + leading_spaces) % 7) % 7;
+
     let mut week_size = 7 - leading_spaces as u8;
     let mut start_day = 1u8;
     let mut lines = 0u8;
+
     while start_day <= days {
         let end_day = (start_day + week_size).min(days + 1);
         if start_day == 1 {
-            for _ in 0..leading_spaces as usize * CELL_WIDTH {
+            for _ in 0..leading_spaces as usize * cell_width {
                 write!(f, " ")?;
             }
         }
@@ -163,7 +199,7 @@ pub fn write_basic_month_calendar(
             let date = NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32).unwrap();
             if options.color {
                 let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-                let style = if options.highlight_today && day == today.day() as u8 {
+                let style = if highlight_today && day == today.day() as u8 {
                     if is_weekend {
                         Style::new().bg_color(Some(WEEKEND_COLOR))
                     } else {
@@ -180,26 +216,26 @@ pub fn write_basic_month_calendar(
                     "{}{day:^2$}{}",
                     style.render(),
                     style.render_reset(),
-                    CELL_WIDTH
+                    cell_width,
                 )?;
             } else {
                 #[allow(clippy::collapsible_if)]
-                if options.highlight_today && day == today.day() as u8 {
-                    write!(f, "[{day:^0$}]", CELL_WIDTH - 2)
+                if highlight_today && day == today.day() as u8 {
+                    write!(f, "[{day:^0$}]", cell_width - 2)
                 } else {
-                    write!(f, "{day:^0$}", CELL_WIDTH)
+                    write!(f, "{day:^0$}", cell_width)
                 }?;
             }
         }
         if end_day == days + 1 {
-            for _ in 0..trailing_spaces as usize * CELL_WIDTH {
+            for _ in 0..trailing_spaces as usize * cell_width {
                 write!(f, " ")?;
             }
         }
         writeln!(f)?;
         if options.enable_chinese {
             if start_day == 1 {
-                for _ in 0..leading_spaces as usize * CELL_WIDTH {
+                for _ in 0..leading_spaces as usize * cell_width {
                     write!(f, " ")?;
                 }
             }
@@ -228,7 +264,7 @@ pub fn write_basic_month_calendar(
                     .unwrap_or_default();
                 if options.color {
                     let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-                    let style = if options.highlight_today && day == today.day() as u8 {
+                    let style = if highlight_today && day == today.day() as u8 {
                         if is_weekend {
                             Style::new().fg_color(Some(WEEKEND_COLOR))
                         } else {
@@ -243,15 +279,15 @@ pub fn write_basic_month_calendar(
                         f,
                         "{}{}{}",
                         style.render(),
-                        Centered(&ch_day, CELL_WIDTH),
+                        Centered(&ch_day, cell_width),
                         style.render_reset(),
                     )
                 } else {
-                    write!(f, "{}", Centered(&ch_day, CELL_WIDTH))
+                    write!(f, "{}", Centered(&ch_day, cell_width))
                 }?;
             }
             if end_day == days + 1 {
-                for _ in 0..trailing_spaces as usize * CELL_WIDTH {
+                for _ in 0..trailing_spaces as usize * cell_width {
                     write!(f, " ")?;
                 }
             }
@@ -262,7 +298,7 @@ pub fn write_basic_month_calendar(
         lines += 1;
     }
     for _ in 0..6 - lines {
-        for _ in 0..CELL_WIDTH * 7 {
+        for _ in 0..cell_width * 7 {
             write!(f, " ")?;
         }
         writeln!(f)?;
@@ -280,9 +316,8 @@ impl Display for MonthCalendar {
                 TranslateAdapter(&ChineseYear(self.year), self.options.language)
             ))?;
         }
-        writeln!(f, "{}", Centered(&title, CELL_WIDTH * 7))?;
-        write_week_line(&self.options, f)?;
-        writeln!(f)?;
+        writeln!(f, "{}", Centered(&title, self.options.cell_width() * 7))?;
+        writeln!(f, "{}", WeekLine(self.options))?;
         write_basic_month_calendar(self.year, self.month, &self.today, &self.options, f)
     }
 }
@@ -296,18 +331,43 @@ impl Display for TripleCalendar {
             calendar1.to_string(),
             calendar2.to_string(),
         ];
-        let colored_separator;
-        let separator = if self.0.options.color {
-            colored_separator = format!(
-                " \n{}|{}\n \n \n \n \n \n ",
+        let mut separator = if self.0.options.color {
+            format!(
+                " \n{} {}",
                 Style::new().invert().render(),
                 Reset.render(),
-            );
-            &colored_separator
+            )
         } else {
-            " \n|\n \n \n \n \n \n "
-        };  
-        let strs = [strings[0].as_str(), separator, &strings[1], separator, &strings[2]];
+            String::from(" \n ")
+        };
+        for _ in 0..if self.0.options.enable_chinese { 12 } else { 6 } {
+            separator.push_str("\n ");
+        }
+        let strs = [
+            strings[0].as_str(),
+            &separator,
+            &strings[1],
+            &separator,
+            &strings[2],
+        ];
         write!(f, "{}", ZipByLine(&strs))
+    }
+}
+impl Display for YearCalendar {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        use Month::*;
+        for month in [January, April, July, October] {
+            write!(
+                f,
+                "{}",
+                TripleCalendar(MonthCalendar {
+                    year: self.year,
+                    month,
+                    today: self.today,
+                    options: self.options,
+                })
+            )?;
+        }
+        Ok(())
     }
 }

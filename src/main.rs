@@ -3,7 +3,7 @@ use std::io::IsTerminal;
 use chrono::{Datelike, Month};
 use clap::{arg, value_parser};
 use nongli::{
-    calendar::{MonthCalendar, Options, TripleCalendar},
+    calendar::{MonthCalendar, Options, TripleCalendar, YearCalendar},
     language::Language::*,
 };
 
@@ -20,7 +20,17 @@ fn main() {
         )
         .arg(
             arg!(-y --year [year] "Year (1900-2100)")
-                .value_parser(value_parser!(u16).range(1900..=2100)),
+                .value_parser(|s: &str| if s.is_empty() {
+                    Ok(0)
+                } else {
+                    let range = 1900..=2100;
+                    u16::from_str_radix(s, 10).map_err(|e| e.to_string())
+                    .and_then(|year| if range.contains(&year) {
+                        Ok(year)
+                    } else {
+                        Err(format!("{year} is not in {range:?}"))
+                    })
+                }),
         )
         .arg(
             arg!(-m --month <month> "Month, in number (1-12)")
@@ -53,38 +63,51 @@ fn main() {
         },
         _ => std::io::stdout().is_terminal(),
     };
+    let highlight_today = !matches.get_flag("no-highlight-today");
 
     let today = chrono::Local::now().date_naive();
 
-    let year = matches
-        .get_one::<u16>("year")
-        .copied()
-        .unwrap_or_else(|| today.year() as u16);
-    let month = Month::try_from(
-        matches
-            .get_one::<u8>("month")
-            .copied()
-            .unwrap_or_else(|| today.month() as u8),
-    )
-    .unwrap();
-    let highlight_today = !matches.get_flag("no-highlight-today")
-        && today.year() == year as i32
-        && today.month() == month.number_from_month();
-    let calendar = MonthCalendar {
-        year,
-        month,
-        today,
-        options: Options {
-            language,
-            enable_chinese,
-            start_on_monday,
-            highlight_today,
-            color,
-        },
+    let options = Options {
+        language,
+        enable_chinese,
+        start_on_monday,
+        highlight_today,
+        color,
     };
-    if triple {
-        print!("{}", TripleCalendar(calendar.pred()));
-    } else {
-        print!("{}", calendar);
+
+    let year = matches.get_one::<u16>("year").copied();
+    dbg!(year);
+    let month = matches
+        .get_one::<u8>("month")
+        .copied()
+        .or_else(|| year.is_none().then_some(today.month() as u8))
+        .and_then(|month| Month::try_from(month).ok());
+
+    let year = year.unwrap_or_else(|| today.year() as u16);
+
+    match month {
+        Some(month) => {
+            let calendar = MonthCalendar {
+                year,
+                month,
+                today,
+                options,
+            };
+            if triple {
+                print!("{}", TripleCalendar(calendar.pred()));
+            } else {
+                print!("{}", calendar);
+            }
+        }
+        None => {
+            print!(
+                "{}",
+                YearCalendar {
+                    year,
+                    today,
+                    options
+                }
+            )
+        }
     }
 }
