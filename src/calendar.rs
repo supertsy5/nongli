@@ -138,8 +138,8 @@ impl<'a> Display for ZipByLine<'a> {
 
 impl Display for WeekLine {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        for weekday in crate::iter::Weekdays(if self.0.start_on_monday { Mon } else { Sun })
-            .take(7) {
+        for weekday in crate::iter::Weekdays(if self.0.start_on_monday { Mon } else { Sun }).take(7)
+        {
             let adapter = ShortTranslateAdapter(&weekday, self.0.language).to_string();
             let centered = Centered(&adapter, self.0.cell_width());
             if self.0.color {
@@ -168,9 +168,8 @@ pub fn write_basic_month_calendar(
     let cell_width = options.cell_width();
     let month = month.number_from_month() as u8;
     let days = crate::days_of_month(year, month);
-    let highlight_today = options.highlight_today
-        && year == today.year() as u16
-        && month == today.month() as u8;
+    let highlight_today =
+        options.highlight_today && year == today.year() as u16 && month == today.month() as u8;
 
     let weekday_of_1st = NaiveDate::from_ymd_opt(year as i32, month as u32, 1)
         .unwrap()
@@ -332,11 +331,7 @@ impl Display for TripleCalendar {
             calendar2.to_string(),
         ];
         let mut separator = if self.0.options.color {
-            format!(
-                " \n{} {}",
-                Style::new().invert().render(),
-                Reset.render(),
-            )
+            format!(" \n{} {}", Style::new().invert().render(), Reset.render(),)
         } else {
             String::from(" \n ")
         };

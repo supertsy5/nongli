@@ -1,14 +1,14 @@
 use std::io::IsTerminal;
 
 use chrono::{Datelike, Month};
-use clap::{arg, value_parser};
+use clap::{arg, value_parser, Command};
 use nongli::{
     calendar::{MonthCalendar, Options, TripleCalendar, YearCalendar},
     language::Language::*,
 };
 
-fn main() {
-    let matches = clap::command!()
+fn cmd() -> Command {
+    clap::command!()
         .arg(arg!(-'3' --triple "Display the preceding, active and following month"))
         .arg(arg!(-C --chinese "Enable Chinese calendar"))
         .arg(arg!(-c --"no-chinese" "Disable Chinese calendar").conflicts_with("chinese"))
@@ -20,23 +20,23 @@ fn main() {
         )
         .arg(
             arg!(-y --year [year] "Year (1900-2100)")
-                .value_parser(|s: &str| if s.is_empty() {
-                    Ok(0)
-                } else {
-                    let range = 1900..=2100;
-                    u16::from_str_radix(s, 10).map_err(|e| e.to_string())
-                    .and_then(|year| if range.contains(&year) {
-                        Ok(year)
-                    } else {
-                        Err(format!("{year} is not in {range:?}"))
-                    })
-                }),
+                .value_parser(value_parser!(u16).range(1900..=2100))
+                .default_missing_value(chrono::Local::now().date_naive().year().to_string()),
         )
         .arg(
             arg!(-m --month <month> "Month, in number (1-12)")
                 .value_parser(value_parser!(u8).range(1..=12)),
         )
-        .get_matches();
+}
+
+#[cfg(test)]
+#[test]
+fn test_cmd() {
+    cmd().debug_assert();
+}
+
+fn main() {
+    let matches = cmd().get_matches();
 
     let language = match std::env::var("LANG") {
         Ok(s) => match s.strip_prefix("zh_") {
@@ -76,7 +76,6 @@ fn main() {
     };
 
     let year = matches.get_one::<u16>("year").copied();
-    dbg!(year);
     let month = matches
         .get_one::<u8>("month")
         .copied()
@@ -99,15 +98,13 @@ fn main() {
                 print!("{}", calendar);
             }
         }
-        None => {
-            print!(
-                "{}",
-                YearCalendar {
-                    year,
-                    today,
-                    options
-                }
-            )
-        }
+        None => print!(
+            "{}",
+            YearCalendar {
+                year,
+                today,
+                options
+            }
+        ),
     }
 }
