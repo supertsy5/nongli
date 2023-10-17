@@ -15,14 +15,18 @@ fn cmd() -> Command {
         .arg(arg!(-M --"start-on-monday" "Start on monday"))
         .arg(arg!(-n --"no-highlight-today" "Don't highlight today"))
         .arg(
+            arg!(-l --landscape "Show full-year calendar in 3 rows and 4 columns")
+                .conflicts_with("month")
+        )
+        .arg(
+            arg!(-p --portrait "Show full-year calendar in 4 rows and 3 columns")
+                .conflicts_with_all(["month", "landscape"])
+        )
+        .arg(
             arg!(--color <color> "Whether to enable colors")
                 .value_parser(["always", "auto", "never"]),
         )
-        .arg(
-            arg!(-y --year [year] "Year (1900-2100)")
-                .value_parser(value_parser!(u16).range(1900..=2100))
-                .default_missing_value(chrono::Local::now().date_naive().year().to_string()),
-        )
+        .arg(arg!(-y --year <year> "Year").value_parser(value_parser!(u16)))
         .arg(
             arg!(-m --month <month> "Month, in number (1-12)")
                 .value_parser(value_parser!(u8).range(1..=12)),
@@ -42,17 +46,23 @@ fn main() {
         Ok(s) => match match s.split_once('.') {
             Some((a, _)) => a,
             None => &s,
-        }.split_once('_') {
-            Some(("zh", region)) => if ["HK", "MO", "TW"].contains(&region) {
-                ChineseTraditional
-            } else {
-                ChineseSimplified
-            },
-            None => if s == "zh" {
-                ChineseSimplified
-            } else {
-                English
-            },
+        }
+        .split_once('_')
+        {
+            Some(("zh", region)) => {
+                if ["HK", "MO", "TW"].contains(&region) {
+                    ChineseTraditional
+                } else {
+                    ChineseSimplified
+                }
+            }
+            None => {
+                if s == "zh" {
+                    ChineseSimplified
+                } else {
+                    English
+                }
+            }
             _ => English,
         },
         Err(_) => English,
@@ -70,6 +80,8 @@ fn main() {
         _ => std::io::stdout().is_terminal(),
     };
     let highlight_today = !matches.get_flag("no-highlight-today");
+    let landscape = matches.get_flag("landscape");
+    let portrait = matches.get_flag("portrait");
 
     let today = chrono::Local::now().date_naive();
 
@@ -91,7 +103,7 @@ fn main() {
     let year = year.unwrap_or_else(|| today.year() as u16);
 
     match month {
-        Some(month) => {
+        Some(month) if !(landscape || portrait) => {
             let calendar = BasicMonthCalendar {
                 year,
                 month,
@@ -104,12 +116,13 @@ fn main() {
                 print!("{}", MonthCalendar(calendar));
             }
         }
-        None => print!(
+        _ => print!(
             "{}",
             YearCalendar {
                 year,
                 today,
-                options
+                options,
+                landscape,
             }
         ),
     }

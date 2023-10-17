@@ -45,6 +45,9 @@ pub struct WeekLine(Options);
 pub struct TripleWeekLine(Options);
 
 #[derive(Clone, Copy, Debug)]
+pub struct QuadWeekLine(Options);
+
+#[derive(Clone, Copy, Debug)]
 pub struct BasicMonthCalendar {
     pub year: u16,
     pub month: Month,
@@ -59,6 +62,9 @@ pub struct MonthCalendar(pub BasicMonthCalendar);
 pub struct BasicTripleCalendar(pub BasicMonthCalendar);
 
 #[derive(Clone, Copy, Debug)]
+pub struct BasicQuadCalendar(pub BasicMonthCalendar);
+
+#[derive(Clone, Copy, Debug)]
 pub struct TripleCalendar(pub BasicMonthCalendar);
 
 #[derive(Clone, Copy, Debug)]
@@ -66,6 +72,7 @@ pub struct YearCalendar {
     pub year: u16,
     pub today: NaiveDate,
     pub options: Options,
+    pub landscape: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -183,6 +190,24 @@ impl Display for TripleWeekLine {
             )
         } else {
             write!(f, "{0}|{0}|{0}", WeekLine(self.0))
+        }
+    }
+}
+
+impl Display for QuadWeekLine {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let triple = TripleWeekLine(self.0);
+        let single = WeekLine(self.0);
+        if self.0.color {
+            write!(
+                f,
+                "{}{}|{}",
+                triple,
+                Style::new().invert().render(),
+                single,
+            )
+        } else {
+            write!(f, "{}|{}", triple, single)
         }
     }
 }
@@ -383,6 +408,30 @@ impl Display for BasicTripleCalendar {
     }
 }
 
+impl Display for BasicQuadCalendar {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        let calendar1 = self.0.succ();
+        let calendar2 = calendar1.succ();
+        let calendar3 = calendar2.succ();
+        let strings = [self.0, calendar1, calendar2, calendar3]
+            .map(|calendar| calendar.to_string());
+        let mut separator = String::new();
+        for _ in 0..if self.0.options.enable_chinese { 12 } else { 6 } {
+            separator.push_str(" \n");
+        }
+        let strs = [
+            strings[0].as_str(),
+            &separator,
+            &strings[1],
+            &separator,
+            &strings[2],
+            &separator,
+            &strings[3],
+        ];
+        write!(f, "{}", ZipByLine(&strs))
+    }
+}
+
 impl Display for TripleCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let options = self.0.options;
@@ -411,6 +460,8 @@ impl Display for YearCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         use Month::*;
         let options = self.options;
+        let language = options.language;
+        let month_width = options.cell_width() * 7;
         writeln!(
             f,
             "{}",
@@ -419,18 +470,46 @@ impl Display for YearCalendar {
                 options.cell_width() * 21 + 2,
             )
         )?;
-        for month in [January, April, July, October] {
-            write!(
-                f,
-                "{}\n{}",
-                TripleWeekLine(options),
-                BasicTripleCalendar(BasicMonthCalendar {
-                    year: self.year,
-                    month,
-                    today: self.today,
-                    options,
-                })
-            )?;
+        if self.landscape {
+            for month in [January, May, September] {
+                let month1 = month.succ();
+                let month2 = month1.succ();
+                let month3 = month2.succ();
+                write!(
+                    f,
+                    "{} {} {} {}\n{}\n{}",
+                    Centered(month.translate_to_string(language), month_width),
+                    Centered(month1.translate_to_string(language), month_width),
+                    Centered(month2.translate_to_string(language), month_width),
+                    Centered(month3.translate_to_string(language), month_width),
+                    QuadWeekLine(options),
+                    BasicQuadCalendar(BasicMonthCalendar {
+                        year: self.year,
+                        month,
+                        today: self.today,
+                        options,
+                    })
+                )?;
+            }
+        } else {
+            for month in [January, April, July, October] {
+                let month1 = month.succ();
+                let month2 = month1.succ();
+                write!(
+                    f,
+                    "{} {} {}\n{}\n{}",
+                    Centered(month.translate_to_string(language), month_width),
+                    Centered(month1.translate_to_string(language), month_width),
+                    Centered(month2.translate_to_string(language), month_width),
+                    TripleWeekLine(options),
+                    BasicTripleCalendar(BasicMonthCalendar {
+                        year: self.year,
+                        month,
+                        today: self.today,
+                        options,
+                    })
+                )?;
+            }
         }
         Ok(())
     }
