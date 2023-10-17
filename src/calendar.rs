@@ -19,12 +19,15 @@ use Alignment::*;
 
 pub const CELL_WIDTH_WITH_CHINESE: usize = 6;
 pub const CELL_WIDTH_WITHOUT_CHINESE: usize = 4;
+pub const WHITE: Color = Color::Ansi(AnsiColor::White);
 pub const NEW_MONTH_COLOR: Color = Color::Ansi(AnsiColor::Blue);
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 #[derive(Clone, Copy, Debug)]
 pub enum Alignment {
-    Left, Center, Right,
+    Left,
+    Center,
+    Right,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -266,11 +269,12 @@ impl Display for BasicMonthCalendar {
                     let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
                     let style = if highlight_today && day == today.day() as u8 {
                         if is_weekend {
-                            Style::new().bg_color(Some(WEEKEND_COLOR))
-                        } else {
                             Style::new()
+                                .fg_color(Some(WEEKEND_COLOR))
+                                .bg_color(Some(WHITE))
+                        } else {
+                            Style::new().invert()
                         }
-                        .invert()
                     } else if is_weekend {
                         Style::new().fg_color(Some(WEEKEND_COLOR))
                     } else {
@@ -337,20 +341,18 @@ impl Display for BasicMonthCalendar {
                         .unwrap_or_default();
                     if options.color {
                         let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-                        let style = if highlight_today && day == today.day() as u8 {
-                            if is_new_month {
-                                Style::new().fg_color(Some(NEW_MONTH_COLOR))
-                            } else if is_weekend {
-                                Style::new().fg_color(Some(WEEKEND_COLOR))
-                            } else {
-                                Style::new().invert()
-                            }
-                        } else if is_new_month {
-                            Style::new().fg_color(Some(NEW_MONTH_COLOR))
+                        let mut style = Style::new();
+                        if is_new_month {
+                            style = style.fg_color(Some(NEW_MONTH_COLOR))
                         } else if is_weekend {
-                            Style::new().fg_color(Some(WEEKEND_COLOR))
-                        } else {
-                            Style::new()
+                            style = style.fg_color(Some(WEEKEND_COLOR))
+                        };
+                        if highlight_today && day == today.day() as u8 {
+                            style = if is_new_month || is_weekend {
+                                style.bg_color(Some(WHITE))
+                            } else {
+                                style.invert()
+                            }
                         };
                         write!(
                             f,
@@ -430,7 +432,7 @@ impl Display for ListCalendar {
             if options.color {
                 if weekend {
                     if is_today {
-                        style = style.bg_color(Some(Color::Ansi(AnsiColor::White)));
+                        style = style.bg_color(Some(WHITE));
                     }
                     style = style.fg_color(Some(WEEKEND_COLOR));
                 } else if is_today {
@@ -458,7 +460,7 @@ impl Display for ListCalendar {
                         write!(f, "{}", style.render_reset())?;
                         style = Style::new().fg_color(Some(NEW_MONTH_COLOR));
                         if is_today {
-                            style = style.bg_color(Some(Color::Ansi(AnsiColor::White)));
+                            style = style.bg_color(Some(WHITE));
                         }
                         write!(f, "{}", style.render())?;
                     }
@@ -473,9 +475,19 @@ impl Display for ListCalendar {
                     } else {
                         write!(
                             f,
-                            "{}{}",
-                            TranslateAdapter(&chinese_date.chinese_month(), options.language),
-                            TranslateAdapter(&chinese_date.chinese_day(), options.language),
+                            "{}",
+                            Aligned(
+                                format!(
+                                    "{}{}",
+                                    TranslateAdapter(
+                                        &chinese_date.chinese_month(),
+                                        options.language
+                                    ),
+                                    TranslateAdapter(&chinese_date.chinese_day(), options.language),
+                                ),
+                                Left,
+                                12,
+                            )
                         )
                     }?;
                 }
