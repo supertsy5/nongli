@@ -39,15 +39,21 @@ fn main() {
     let matches = cmd().get_matches();
 
     let language = match std::env::var("LANG") {
-        Ok(s) => match s.strip_prefix("zh_") {
-            Some(s) => {
-                if ["HK", "TW"].contains(&&s[..2]) {
-                    ChineseTraditional
-                } else {
-                    ChineseSimplified
-                }
-            }
-            None => English,
+        Ok(s) => match match s.split_once('.') {
+            Some((a, _)) => a,
+            None => &s,
+        }.split_once('_') {
+            Some(("zh", region)) => if ["HK", "MO", "TW"].contains(&region) {
+                ChineseTraditional
+            } else {
+                ChineseSimplified
+            },
+            None => if s == "zh" {
+                ChineseSimplified
+            } else {
+                English
+            },
+            _ => English,
         },
         Err(_) => English,
     };

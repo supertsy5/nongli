@@ -11,12 +11,13 @@ use crate::{
     language::{
         ChineseDay, ChineseMonth,
         Language::{self, *},
-        ShortTranslateAdapter, MonthTitle, Translate, TranslateAdapter, YearTitle,
+        MonthTitle, ShortTranslateAdapter, Translate, TranslateAdapter, YearTitle,
     },
 };
 
 pub const CELL_WIDTH_WITH_CHINESE: usize = 6;
 pub const CELL_WIDTH_WITHOUT_CHINESE: usize = 4;
+pub const NEW_MONTH_COLOR: Color = Color::Ansi(AnsiColor::Blue);
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 #[derive(Clone, Copy, Debug)]
@@ -270,35 +271,45 @@ impl Display for BasicMonthCalendar {
                 for day in start_day..end_day {
                     let date =
                         NaiveDate::from_ymd_opt(year as i32, month as u32, day as u32).unwrap();
-                    let ch_day = ChineseDate::from_gregorian(&date)
+                    let (ch_day, is_new_month) = ChineseDate::from_gregorian(&date)
                         .map(|ch_date| {
                             let ch_day = ch_date.day();
                             if ch_day == 1 {
                                 let ch_month =
                                     ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap();
-                                if options.language == English {
-                                    format!("(M{})", TranslateAdapter(&ch_month, English))
-                                } else {
-                                    ch_month.translate_to_string(options.language)
-                                }
+                                (
+                                    if options.language == English {
+                                        format!("(M{})", TranslateAdapter(&ch_month, English))
+                                    } else {
+                                        ch_month.translate_to_string(options.language)
+                                    },
+                                    true,
+                                )
                             } else {
                                 let ch_day = ChineseDay::new(ch_day).unwrap();
-                                if options.language == English {
-                                    format!("({})", TranslateAdapter(&ch_day, English))
-                                } else {
-                                    ch_day.translate_to_string(options.language)
-                                }
+                                (
+                                    if options.language == English {
+                                        format!("({})", TranslateAdapter(&ch_day, English))
+                                    } else {
+                                        ch_day.translate_to_string(options.language)
+                                    },
+                                    false,
+                                )
                             }
                         })
                         .unwrap_or_default();
                     if options.color {
                         let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
                         let style = if highlight_today && day == today.day() as u8 {
-                            if is_weekend {
+                            if is_new_month {
+                                Style::new().fg_color(Some(NEW_MONTH_COLOR))
+                            } else if is_weekend {
                                 Style::new().fg_color(Some(WEEKEND_COLOR))
                             } else {
                                 Style::new().invert()
                             }
+                        } else if is_new_month {
+                            Style::new().fg_color(Some(NEW_MONTH_COLOR))
                         } else if is_weekend {
                             Style::new().fg_color(Some(WEEKEND_COLOR))
                         } else {
@@ -400,10 +411,14 @@ impl Display for YearCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         use Month::*;
         let options = self.options;
-        writeln!(f, "{}", Centered(
-            YearTitle(self.year, options.enable_chinese).translate_to_string(options.language),
-            options.cell_width() * 21 + 2,
-        ))?;
+        writeln!(
+            f,
+            "{}",
+            Centered(
+                YearTitle(self.year, options.enable_chinese).translate_to_string(options.language),
+                options.cell_width() * 21 + 2,
+            )
+        )?;
         for month in [January, April, July, October] {
             write!(
                 f,
