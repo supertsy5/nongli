@@ -39,8 +39,11 @@ pub enum Language {
     ChineseTraditional,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Title(pub u16, pub Month);
+#[derive(Clone, Copy, Debug)]
+pub struct YearTitle(pub u16, pub bool);
+
+#[derive(Clone, Copy, Debug)]
+pub struct MonthTitle(pub u16, pub Month, pub bool);
 
 #[derive(Clone, Copy, Debug)]
 pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
@@ -187,11 +190,25 @@ impl Translate for ChineseDay {
     }
 }
 
-impl Translate for Title {
+impl Translate for MonthTitle {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         match language {
             English => write!(f, "{} {}", self.1.name(), self.0),
             chinese => write!(f, "{}年 {}", self.0, TranslateAdapter(&self.1, chinese)),
+        }
+    }
+}
+
+impl Translate for YearTitle {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        match language {
+            English => write!(f, "{}", self.0),
+            _ => write!(f, "{}年", self.0),
+        }?;
+        if self.1 {
+            write!(f, " {}", TranslateAdapter(&ChineseYear(self.0), language))
+        } else {
+            Ok(())
         }
     }
 }

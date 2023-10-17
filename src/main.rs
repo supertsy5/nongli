@@ -3,7 +3,7 @@ use std::io::IsTerminal;
 use chrono::{Datelike, Month};
 use clap::{arg, value_parser, Command};
 use nongli::{
-    calendar::{MonthCalendar, Options, TripleCalendar, YearCalendar},
+    calendar::{BasicMonthCalendar, MonthCalendar, Options, TripleCalendar, YearCalendar},
     language::Language::*,
 };
 
@@ -86,7 +86,7 @@ fn main() {
 
     match month {
         Some(month) => {
-            let calendar = MonthCalendar {
+            let calendar = BasicMonthCalendar {
                 year,
                 month,
                 today,
@@ -95,7 +95,7 @@ fn main() {
             if triple {
                 print!("{}", TripleCalendar(calendar.pred()));
             } else {
-                print!("{}", calendar);
+                print!("{}", MonthCalendar(calendar));
             }
         }
         None => print!(
