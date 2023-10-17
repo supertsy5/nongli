@@ -195,6 +195,11 @@ impl Translate for MonthTitle {
         match language {
             English => write!(f, "{} {}", self.1.name(), self.0),
             chinese => write!(f, "{}年 {}", self.0, TranslateAdapter(&self.1, chinese)),
+        }?;
+        if self.2 {
+            write!(f, " {}", TranslateAdapter(&ChineseYear(self.0), language))
+        } else {
+            Ok(())
         }
     }
 }
