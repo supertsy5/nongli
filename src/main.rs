@@ -3,12 +3,13 @@ use std::io::IsTerminal;
 use chrono::{Datelike, Month};
 use clap::{arg, value_parser};
 use nongli::{
-    calendar::{MonthCalendar, Options},
+    calendar::{MonthCalendar, Options, TripleCalendar},
     language::Language::*,
 };
 
 fn main() {
     let matches = clap::command!()
+        .arg(arg!(-'3' --triple "Display the preceding, active and following month"))
         .arg(arg!(-C --chinese "Enable Chinese calendar"))
         .arg(arg!(-c --"no-chinese" "Disable Chinese calendar").conflicts_with("chinese"))
         .arg(arg!(-M --"start-on-monday" "Start on monday"))
@@ -19,7 +20,7 @@ fn main() {
         )
         .arg(
             arg!(-y --year [year] "Year (1900-2100)")
-                .value_parser(value_parser!(u16).range(1900..=2100))
+                .value_parser(value_parser!(u16).range(1900..=2100)),
         )
         .arg(
             arg!(-m --month <month> "Month, in number (1-12)")
@@ -40,6 +41,7 @@ fn main() {
         },
         Err(_) => English,
     };
+    let triple = matches.get_flag("triple");
     let start_on_monday = matches.get_flag("start-on-monday");
     let enable_chinese =
         matches.get_flag("chinese") || !(matches.get_flag("no-chinese") || language == English);
@@ -68,19 +70,21 @@ fn main() {
     let highlight_today = !matches.get_flag("no-highlight-today")
         && today.year() == year as i32
         && today.month() == month.number_from_month();
-    print!(
-        "{}",
-        MonthCalendar {
-            year,
-            month,
-            today,
-            options: Options {
-                language,
-                enable_chinese,
-                start_on_monday,
-                highlight_today,
-                color,
-            }
-        }
-    );
+    let calendar = MonthCalendar {
+        year,
+        month,
+        today,
+        options: Options {
+            language,
+            enable_chinese,
+            start_on_monday,
+            highlight_today,
+            color,
+        },
+    };
+    if triple {
+        print!("{}", TripleCalendar(calendar.pred()));
+    } else {
+        print!("{}", calendar);
+    }
 }
