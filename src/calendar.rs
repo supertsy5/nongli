@@ -15,13 +15,20 @@ use crate::{
     },
 };
 
+use Alignment::*;
+
 pub const CELL_WIDTH_WITH_CHINESE: usize = 6;
 pub const CELL_WIDTH_WITHOUT_CHINESE: usize = 4;
 pub const NEW_MONTH_COLOR: Color = Color::Ansi(AnsiColor::Blue);
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 
 #[derive(Clone, Copy, Debug)]
-pub struct Centered<T: AsRef<str>>(pub T, pub usize);
+pub enum Alignment {
+    Left, Center, Right,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Aligned<T: AsRef<str>>(pub T, pub Alignment, pub usize);
 
 pub fn rendered_width(s: &str) -> usize {
     s.chars()
@@ -117,15 +124,19 @@ impl BasicMonthCalendar {
     }
 }
 
-impl<T: AsRef<str>> Display for Centered<T> {
+impl<T: AsRef<str>> Display for Aligned<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let s = self.0.as_ref();
         let width = rendered_width(s);
-        if width >= self.1 {
+        if width >= self.2 {
             return write!(f, "{}", s);
         }
-        let padding_spaces = self.1 - width;
-        let padding_left = padding_spaces / 2;
+        let padding_spaces = self.2 - width;
+        let padding_left = match self.1 {
+            Left => 0,
+            Center => padding_spaces / 2,
+            Right => padding_spaces,
+        };
         let padding_right = padding_spaces - padding_left;
         for _ in 0..padding_left {
             write!(f, " ")?;
@@ -162,8 +173,9 @@ impl Display for WeekLine {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         for weekday in crate::iter::Weekdays(if self.0.start_on_monday { Mon } else { Sun }).take(7)
         {
-            let centered = Centered(
+            let centered = Aligned(
                 ShortTranslateAdapter(&weekday, self.0.language).to_string(),
+                Center,
                 self.0.cell_width(),
             );
             if self.0.color {
@@ -344,11 +356,11 @@ impl Display for BasicMonthCalendar {
                             f,
                             "{}{}{}",
                             style.render(),
-                            Centered(&ch_day, cell_width),
+                            Aligned(&ch_day, Center, cell_width),
                             style.render_reset(),
                         )
                     } else {
-                        write!(f, "{}", Centered(&ch_day, cell_width))
+                        write!(f, "{}", Aligned(&ch_day, Center, cell_width))
                     }?;
                 }
                 if end_day == days + 1 {
@@ -378,9 +390,10 @@ impl Display for MonthCalendar {
         write!(
             f,
             "{}\n{}\n{}",
-            Centered(
+            Aligned(
                 self.0.title().translate_to_string(options.language),
-                options.cell_width() * 7
+                Center,
+                options.cell_width() * 7,
             ),
             WeekLine(options),
             self.0,
@@ -423,15 +436,20 @@ impl Display for ListCalendar {
                 } else if is_today {
                     style = style.invert();
                 }
-                write!(f, "{}{:<8}{:12}", style.render(), day, weekday_string,)
+                write!(
+                    f,
+                    "{}{:<8}{:}",
+                    style.render(),
+                    day,
+                    Aligned(weekday_string, Left, 12),
+                )
             } else {
                 write!(
                     f,
-                    "{}{}{}{}",
+                    "{}{:<7}{}",
                     if is_today { '[' } else { ' ' },
                     day,
-                    weekday_string,
-                    if is_today { ']' } else { ' ' }
+                    Aligned(weekday_string, Left, 12),
                 )
             }?;
             if options.enable_chinese {
@@ -461,6 +479,9 @@ impl Display for ListCalendar {
                         )
                     }?;
                 }
+            }
+            if !options.color && is_today {
+                write!(f, "]")?;
             }
             writeln!(f, "{}", style.render_reset())?;
         }
@@ -519,8 +540,9 @@ impl Display for TripleCalendar {
         let calendar1 = self.0.succ();
         let calendar2 = calendar1.succ();
         let titles = [self.0, calendar1, calendar2].map(|c| {
-            Centered(
+            Aligned(
                 c.title().translate_to_string(options.language),
+                Center,
                 cell_width * 7,
             )
         });
@@ -546,8 +568,9 @@ impl Display for YearCalendar {
         writeln!(
             f,
             "{}",
-            Centered(
+            Aligned(
                 YearTitle(self.year, options.enable_chinese).translate_to_string(options.language),
+                Center,
                 if self.landscape {
                     cell_width * 28 + 3
                 } else {
@@ -563,10 +586,10 @@ impl Display for YearCalendar {
                 write!(
                     f,
                     "{} {} {} {}\n{}\n{}",
-                    Centered(month.translate_to_string(language), month_width),
-                    Centered(month1.translate_to_string(language), month_width),
-                    Centered(month2.translate_to_string(language), month_width),
-                    Centered(month3.translate_to_string(language), month_width),
+                    Aligned(month.translate_to_string(language), Center, month_width),
+                    Aligned(month1.translate_to_string(language), Center, month_width),
+                    Aligned(month2.translate_to_string(language), Center, month_width),
+                    Aligned(month3.translate_to_string(language), Center, month_width),
                     QuadWeekLine(options),
                     BasicQuadCalendar(BasicMonthCalendar {
                         year: self.year,
@@ -583,9 +606,9 @@ impl Display for YearCalendar {
                 write!(
                     f,
                     "{} {} {}\n{}\n{}",
-                    Centered(month.translate_to_string(language), month_width),
-                    Centered(month1.translate_to_string(language), month_width),
-                    Centered(month2.translate_to_string(language), month_width),
+                    Aligned(month.translate_to_string(language), Center, month_width),
+                    Aligned(month1.translate_to_string(language), Center, month_width),
+                    Aligned(month2.translate_to_string(language), Center, month_width),
                     TripleWeekLine(options),
                     BasicTripleCalendar(BasicMonthCalendar {
                         year: self.year,
