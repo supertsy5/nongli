@@ -68,9 +68,17 @@ impl SolarTerm {
 }
 
 pub fn get_solar_term(date: &impl chrono::Datelike) -> Option<SolarTerm> {
-    let solar_terms = SOLAR_TERMS
-        .get(date.year() as usize - 1900)
-        .or_else(|| SOLAR_TERMS_2020S.get(date.year() as usize - 2020))?;
+    let year = date.year();
+    if year < 1900 {
+        return None;
+    }
+    let solar_terms = SOLAR_TERMS.get(date.year() as usize - 1900).or_else(|| {
+        if year >= 2020 {
+            SOLAR_TERMS_2020S.get(date.year() as usize - 2020)
+        } else {
+            None
+        }
+    })?;
     let ordinal0 = date.month0() as u8 * 2;
     let ordinal1 = ordinal0 + 1;
     dbg!(ordinal0, ordinal1);
