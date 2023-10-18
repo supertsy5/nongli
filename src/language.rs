@@ -8,14 +8,12 @@ use Language::*;
 
 use crate::chinese_date::{ChineseDate, ChineseDay, ChineseMonth, ChineseYear};
 
-pub const TIANGAN_EN: &[&str] = &[
-    "Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui",
-];
+pub const TIANGAN_EN: &[&str] =
+    &["Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui"];
 pub const TIANGAN: &str = "甲乙丙丁戊己庚辛壬癸";
 pub const DIZHI: &str = "子丑寅卯辰巳午未申酉戌亥";
-pub const DIZHI_EN: &[&str] = &[
-    "zi", "chou", "yin", "mao", "chen", "si", "wu", "wei", "shen", "you", "xu", "hai",
-];
+pub const DIZHI_EN: &[&str] =
+    &["zi", "chou", "yin", "mao", "chen", "si", "wu", "wei", "shen", "you", "xu", "hai"];
 pub const SHENGXIAO_S: &str = "鼠牛虎兔龙蛇马羊猴鸡狗猪";
 pub const SHENGXIAO_T: &str = "鼠牛虎兔龍蛇馬羊猴雞狗豬";
 pub const SHENGXIAO_EN: &[&str] = &[

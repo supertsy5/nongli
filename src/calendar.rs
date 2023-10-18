@@ -510,13 +510,7 @@ impl Display for BasicTripleCalendar {
         for _ in 0..if self.0.options.enable_chinese { 12 } else { 6 } {
             separator.push_str(" \n");
         }
-        let strs = [
-            strings[0].as_str(),
-            &separator,
-            &strings[1],
-            &separator,
-            &strings[2],
-        ];
+        let strs = [strings[0].as_str(), &separator, &strings[1], &separator, &strings[2]];
         write!(f, "{}", ZipByLine(&strs))
     }
 }

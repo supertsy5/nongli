@@ -1,3 +1,5 @@
+use crate::data::{SOLAR_TERMS, SOLAR_TERMS_2020S};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SolarTerm {
     Xiaohan,
@@ -62,5 +64,36 @@ impl SolarTerm {
     }
     pub fn is_midterm(self) -> bool {
         self.as_ordinal() % 2 > 0
+    }
+}
+
+pub fn get_solar_term(date: &impl chrono::Datelike) -> Option<SolarTerm> {
+    let solar_terms = SOLAR_TERMS
+        .get(date.year() as usize - 1900)
+        .or_else(|| SOLAR_TERMS_2020S.get(date.year() as usize - 2020))?;
+    let ordinal0 = date.month0() as u8 * 2;
+    let ordinal1 = ordinal0 + 1;
+    dbg!(ordinal0, ordinal1);
+    let day = date.day() as u8;
+    if day == solar_terms[ordinal0 as usize] {
+        SolarTerm::from_ordinal(ordinal0)
+    } else if day == solar_terms[ordinal1 as usize] {
+        SolarTerm::from_ordinal(ordinal1)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test() {
+    for (i, solar_terms) in SOLAR_TERMS.iter().enumerate() {
+        let year = i + 1900;
+        for (j, day) in solar_terms.iter().enumerate() {
+            let month = j as u32 / 2 + 1;
+            let date = chrono::NaiveDate::from_ymd_opt(year as i32, month, *day as u32).unwrap();
+            dbg!(date);
+            assert_eq!(get_solar_term(&date), SolarTerm::from_ordinal(j as u8));
+        }
     }
 }
