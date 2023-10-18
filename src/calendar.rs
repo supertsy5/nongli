@@ -440,7 +440,7 @@ impl Display for ListCalendar {
                 }
                 write!(
                     f,
-                    "{}{:<8}{:}",
+                    "{}{:4}    {:}",
                     style.render(),
                     day,
                     Aligned(weekday_string, Left, 12),
@@ -448,7 +448,7 @@ impl Display for ListCalendar {
             } else {
                 write!(
                     f,
-                    "{}{:<7}{}",
+                    "{}{:3}    {}",
                     if is_today { '[' } else { ' ' },
                     day,
                     Aligned(weekday_string, Left, 12),

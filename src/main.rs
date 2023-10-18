@@ -29,13 +29,17 @@ fn cmd() -> Command {
         )
         .arg(
             arg!(-L --list "Show the calendar in a list")
-                .conflicts_with_all(["landscape", "portrait"])
+                .conflicts_with_all(["landscape", "portrait"]),
         )
         .arg(
             arg!(--color <color> "Whether to enable colors")
                 .value_parser(["always", "auto", "never"]),
         )
-        .arg(arg!(-y --year <year> "Year").value_parser(value_parser!(u16)))
+        .arg(
+            arg!(-y --year [year] "Year")
+                .value_parser(value_parser!(u16))
+                .default_missing_value(chrono::Local::now().year().to_string()),
+        )
         .arg(
             arg!(-m --month <month> "Month, in number (1-12)")
                 .value_parser(value_parser!(u8).range(1..=12)),
@@ -146,14 +150,30 @@ fn main() {
                 print!("{}", MonthCalendar(calendar));
             }
         }
-        _ => print!(
-            "{}",
-            YearCalendar {
-                year,
-                today,
-                options,
-                landscape,
+        _ => {
+            if list {
+                for month in 1..=12 {
+                    print!(
+                        "{}",
+                        ListCalendar(BasicMonthCalendar {
+                            year,
+                            month: Month::try_from(month).unwrap(),
+                            today,
+                            options,
+                        })
+                    )
+                }
+            } else {
+                print!(
+                    "{}",
+                    YearCalendar {
+                        year,
+                        today,
+                        options,
+                        landscape,
+                    }
+                )
             }
-        ),
+        }
     }
 }
