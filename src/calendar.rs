@@ -11,8 +11,9 @@ use crate::{
     days_of_month, is_weekend,
     language::{
         Language::{self, *},
-        MonthTitle, Short, Translate, TranslateAdapter, YearTitle,
+        MonthTitle, Short, StaticTranslate, Translate, TranslateAdapter, YearTitle,
     },
+    SolarTerm,
 };
 
 use Alignment::*;
@@ -233,7 +234,8 @@ impl Display for BasicMonthCalendar {
             today,
             options,
         } = *self;
-        let cell_width = self.options.cell_width();
+        let language = options.language;
+        let cell_width = options.cell_width();
         let days = days_of_month(year, month);
         let highlight_today = options.highlight_today
             && year == today.year() as u16
@@ -316,29 +318,29 @@ impl Display for BasicMonthCalendar {
                     let (string, color) = ChineseDate::from_gregorian(&date)
                         .map(|ch_date| {
                             let ch_day = ch_date.day();
-                            if let Some(term) = crate::solar_term::get_solar_term(&date) {
+                            if let Some(term) = SolarTerm::from_date(&date) {
                                 (
-                                    Short(&term).translate_to_string(options.language),
+                                    Short(&term).translate_to_string(language),
                                     Some(SOLAR_TERM_COLOR),
                                 )
                             } else if ch_day == 1 {
                                 let ch_month =
                                     ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap();
                                 (
-                                    if options.language == English {
+                                    if language == English {
                                         format!("(M{})", TranslateAdapter(&ch_month, English))
                                     } else {
-                                        ch_month.translate_to_string(options.language)
+                                        ch_month.translate_to_string(language)
                                     },
                                     Some(NEW_MONTH_COLOR),
                                 )
                             } else {
                                 let ch_day = ChineseDay::new(ch_day).unwrap();
                                 (
-                                    if options.language == English {
+                                    if language == English {
                                         format!("({})", TranslateAdapter(&ch_day, English))
                                     } else {
-                                        ch_day.translate_to_string(options.language)
+                                        ch_day.translate_to_string(language)
                                     },
                                     None,
                                 )
@@ -412,6 +414,7 @@ impl Display for MonthCalendar {
 impl Display for ListCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let options = self.0.options;
+        let language = options.language;
         let highlight_today = options.highlight_today
             && self.0.year as i32 == self.0.today.year()
             && self.0.month.number_from_month() == self.0.today.month();
@@ -420,7 +423,7 @@ impl Display for ListCalendar {
             "{}:",
             TranslateAdapter(
                 &MonthTitle(self.0.year, self.0.month, options.enable_chinese),
-                self.0.options.language
+                language,
             )
         )?;
         for day in 1..=days_of_month(self.0.year, self.0.month) {
@@ -433,7 +436,7 @@ impl Display for ListCalendar {
             let is_today = highlight_today && self.0.today.day() == day as u32;
             let weekday = date.weekday();
             let weekend = is_weekend(weekday);
-            let weekday_string = weekday.translate_to_string(options.language);
+            let weekday_string = weekday.translate_to_string(language);
             let mut style = Style::new();
             if options.color {
                 if weekend {
@@ -470,10 +473,10 @@ impl Display for ListCalendar {
                         }
                         write!(f, "{}", style.render())?;
                     }
-                    if options.language == English {
+                    if language == English {
                         write!(
                             f,
-                            "{:02}{}{:02}",
+                            "{:02}{}{:02}   ",
                             chinese_date.month(),
                             if chinese_date.leap() { '+' } else { '-' },
                             chinese_date.day(),
@@ -485,18 +488,34 @@ impl Display for ListCalendar {
                             Aligned(
                                 format!(
                                     "{}{}",
-                                    TranslateAdapter(
-                                        &chinese_date.chinese_month(),
-                                        options.language
-                                    ),
-                                    TranslateAdapter(&chinese_date.chinese_day(), options.language),
+                                    TranslateAdapter(&chinese_date.chinese_month(), language),
+                                    TranslateAdapter(&chinese_date.chinese_day(), language),
                                 ),
                                 Left,
-                                12,
+                                10,
                             )
                         )
                     }?;
                 }
+                if let Some(solar_term) = SolarTerm::from_date(&date) {
+                    if options.color {
+                        if is_today {
+                            style = Style::new()
+                                .bg_color(Some(WHITE))
+                                .fg_color(Some(SOLAR_TERM_COLOR))
+                        } else {
+                            style = style.fg_color(Some(SOLAR_TERM_COLOR))
+                        }
+                    }
+                    write!(f, "  {}{}", style.render_reset(), style.render())?;
+                    if language == English {
+                        write!(f, "{:12}", solar_term.static_translate(language))
+                    } else {
+                        solar_term.translate(language, f)
+                    }
+                } else {
+                    write!(f, "{:1$}", "", if language == English { 14 } else { 6 })
+                }?;
             }
             if !options.color && is_today {
                 write!(f, "]")?;
@@ -581,7 +600,7 @@ impl Display for YearCalendar {
             f,
             "{}",
             Aligned(
-                YearTitle(self.year, options.enable_chinese).translate_to_string(options.language),
+                YearTitle(self.year, options.enable_chinese).translate_to_string(language),
                 Center,
                 if self.landscape {
                     cell_width * 28 + 3

@@ -62,32 +62,31 @@ impl SolarTerm {
             _ => None,
         }
     }
-    pub fn is_midterm(self) -> bool {
-        self.as_ordinal() % 2 > 0
-    }
-}
-
-pub fn get_solar_term(date: &impl chrono::Datelike) -> Option<SolarTerm> {
-    let year = date.year();
-    if year < 1900 {
-        return None;
-    }
-    let solar_terms = SOLAR_TERMS.get(date.year() as usize - 1900).or_else(|| {
-        if year >= 2020 {
-            SOLAR_TERMS_2020S.get(date.year() as usize - 2020)
+    pub fn from_date(date: &impl chrono::Datelike) -> Option<SolarTerm> {
+        let year = date.year();
+        if year < 1900 {
+            return None;
+        }
+        let solar_terms = SOLAR_TERMS.get(date.year() as usize - 1900).or_else(|| {
+            if year >= 2020 {
+                SOLAR_TERMS_2020S.get(date.year() as usize - 2020)
+            } else {
+                None
+            }
+        })?;
+        let ordinal0 = date.month0() as u8 * 2;
+        let ordinal1 = ordinal0 + 1;
+        let day = date.day() as u8;
+        if day == solar_terms[ordinal0 as usize] {
+            SolarTerm::from_ordinal(ordinal0)
+        } else if day == solar_terms[ordinal1 as usize] {
+            SolarTerm::from_ordinal(ordinal1)
         } else {
             None
         }
-    })?;
-    let ordinal0 = date.month0() as u8 * 2;
-    let ordinal1 = ordinal0 + 1;
-    let day = date.day() as u8;
-    if day == solar_terms[ordinal0 as usize] {
-        SolarTerm::from_ordinal(ordinal0)
-    } else if day == solar_terms[ordinal1 as usize] {
-        SolarTerm::from_ordinal(ordinal1)
-    } else {
-        None
+    }
+    pub fn is_midterm(self) -> bool {
+        self.as_ordinal() % 2 > 0
     }
 }
 
@@ -100,7 +99,10 @@ fn test() {
             let month = j as u32 / 2 + 1;
             let date = chrono::NaiveDate::from_ymd_opt(year as i32, month, *day as u32).unwrap();
             dbg!(date);
-            assert_eq!(get_solar_term(&date), SolarTerm::from_ordinal(j as u8));
+            assert_eq!(
+                SolarTerm::from_date(&date),
+                SolarTerm::from_ordinal(j as u8)
+            );
         }
     }
 }
