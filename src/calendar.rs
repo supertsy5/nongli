@@ -11,7 +11,7 @@ use crate::{
     days_of_month, is_weekend,
     language::{
         Language::{self, *},
-        MonthTitle, ShortTranslateAdapter, Translate, TranslateAdapter, YearTitle,
+        MonthTitle, Short, Translate, TranslateAdapter, YearTitle,
     },
 };
 
@@ -20,8 +20,9 @@ use Alignment::*;
 pub const CELL_WIDTH_WITH_CHINESE: usize = 6;
 pub const CELL_WIDTH_WITHOUT_CHINESE: usize = 4;
 pub const WHITE: Color = Color::Ansi(AnsiColor::White);
-pub const NEW_MONTH_COLOR: Color = Color::Ansi(AnsiColor::Blue);
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
+pub const NEW_MONTH_COLOR: Color = Color::Ansi(AnsiColor::Blue);
+pub const SOLAR_TERM_COLOR: Color = Color::Ansi(AnsiColor::Green);
 
 #[derive(Clone, Copy, Debug)]
 pub enum Alignment {
@@ -177,7 +178,7 @@ impl Display for WeekLine {
         for weekday in crate::iter::Weekdays(if self.0.start_on_monday { Mon } else { Sun }).take(7)
         {
             let centered = Aligned(
-                ShortTranslateAdapter(&weekday, self.0.language).to_string(),
+                TranslateAdapter(&Short(&weekday), self.0.language).to_string(),
                 Center,
                 self.0.cell_width(),
             );
@@ -312,10 +313,15 @@ impl Display for BasicMonthCalendar {
                     let date =
                         NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), day as u32)
                             .unwrap();
-                    let (ch_day, is_new_month) = ChineseDate::from_gregorian(&date)
+                    let (string, color) = ChineseDate::from_gregorian(&date)
                         .map(|ch_date| {
                             let ch_day = ch_date.day();
-                            if ch_day == 1 {
+                            if let Some(term) = crate::solar_term::get_solar_term(&date) {
+                                (
+                                    Short(&term).translate_to_string(options.language),
+                                    Some(SOLAR_TERM_COLOR),
+                                )
+                            } else if ch_day == 1 {
                                 let ch_month =
                                     ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap();
                                 (
@@ -324,7 +330,7 @@ impl Display for BasicMonthCalendar {
                                     } else {
                                         ch_month.translate_to_string(options.language)
                                     },
-                                    true,
+                                    Some(NEW_MONTH_COLOR),
                                 )
                             } else {
                                 let ch_day = ChineseDay::new(ch_day).unwrap();
@@ -334,7 +340,7 @@ impl Display for BasicMonthCalendar {
                                     } else {
                                         ch_day.translate_to_string(options.language)
                                     },
-                                    false,
+                                    None,
                                 )
                             }
                         })
@@ -342,13 +348,13 @@ impl Display for BasicMonthCalendar {
                     if options.color {
                         let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
                         let mut style = Style::new();
-                        if is_new_month {
-                            style = style.fg_color(Some(NEW_MONTH_COLOR))
+                        if let Some(color) = color {
+                            style = style.fg_color(Some(color))
                         } else if is_weekend {
                             style = style.fg_color(Some(WEEKEND_COLOR))
                         };
                         if highlight_today && day == today.day() as u8 {
-                            style = if is_new_month || is_weekend {
+                            style = if color.is_some() || is_weekend {
                                 style.bg_color(Some(WHITE))
                             } else {
                                 style.invert()
@@ -358,11 +364,11 @@ impl Display for BasicMonthCalendar {
                             f,
                             "{}{}{}",
                             style.render(),
-                            Aligned(&ch_day, Center, cell_width),
+                            Aligned(&string, Center, cell_width),
                             style.render_reset(),
                         )
                     } else {
-                        write!(f, "{}", Aligned(&ch_day, Center, cell_width))
+                        write!(f, "{}", Aligned(&string, Center, cell_width))
                     }?;
                 }
                 if end_day == days + 1 {

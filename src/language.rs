@@ -1,12 +1,12 @@
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use chrono::{
-    Month::{self, *},
-    Weekday::{self, *},
-};
+use chrono::{Month, Weekday};
 use Language::*;
 
-use crate::chinese_date::{ChineseDate, ChineseDay, ChineseMonth, ChineseYear};
+use crate::{
+    chinese_date::{ChineseDate, ChineseDay, ChineseMonth, ChineseYear},
+    SolarTerm,
+};
 
 pub const TIANGAN_EN: &[&str] =
     &["Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui"];
@@ -47,7 +47,7 @@ pub struct MonthTitle(pub u16, pub Month, pub bool);
 pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
 
 #[derive(Clone, Copy, Debug)]
-pub struct ShortTranslateAdapter<'a, T: ShortTranslate>(pub &'a T, pub Language);
+pub struct Short<'a, T: ShortTranslate>(pub &'a T);
 
 pub trait Translate {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
@@ -63,15 +63,19 @@ pub trait ShortTranslate {
     fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
 }
 
+pub trait StaticTranslate {
+    fn static_translate(&self, language: Language) -> &'static str;
+}
+
 impl<'a, T: Translate> Display for TranslateAdapter<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.0.translate(self.1, f)
     }
 }
 
-impl<'a, T: ShortTranslate> Display for ShortTranslateAdapter<'a, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.0.short_translate(self.1, f)
+impl<'a, T: ShortTranslate> Translate for Short<'a, T> {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        self.0.short_translate(language, f)
     }
 }
 
@@ -180,9 +184,9 @@ impl Translate for YearTitle {
 impl Translate for Month {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         if language == English {
-            self.short_translate(language, f)
+            write!(f, "{}", self.name())
         } else {
-            write!(f, "{}月", ShortTranslateAdapter(self, language))
+            write!(f, "{}月", TranslateAdapter(&Short(self), language))
         }
     }
 }
@@ -193,23 +197,25 @@ impl ShortTranslate for Month {
             f,
             "{}",
             match language {
-                English => self.name(),
-                _ => match self {
-                    January => "一",
-                    February => "二",
-                    March => "三",
-                    April => "四",
-                    May => "五",
-                    June => "六",
-                    July => "七",
-                    August => "八",
-                    September => "九",
-                    October => "十",
-                    November => "十一",
-                    December => "十二",
-                },
+                English => &self.name()[..3],
+                _ => self.static_translate(language),
             }
         )
+    }
+}
+
+impl StaticTranslate for Month {
+    fn static_translate(&self, language: Language) -> &'static str {
+        let number = self.number_from_month();
+        match language {
+            English => self.name(),
+            _ => match number {
+                1..=10 => get_char_as_str("一二三四五六七八九十", number as usize - 1).unwrap(),
+                11 => "十一",
+                12 => "十二",
+                _ => unreachable!(),
+            },
+        }
     }
 }
 
@@ -219,47 +225,27 @@ impl Translate for Weekday {
             English => write!(
                 f,
                 "{}",
-                match self {
-                    Sun => "Sunday",
-                    Mon => "Monday",
-                    Tue => "Tuesday",
-                    Wed => "Wednesday",
-                    Thu => "Thursday",
-                    Fri => "Friday",
-                    Sat => "Saturday",
-                }
+                ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+                    [self.num_days_from_sunday() as usize],
             ),
-            _ => write!(f, "星期{}", ShortTranslateAdapter(self, language)),
+            _ => write!(f, "星期{}", TranslateAdapter(&Short(self), language)),
         }
     }
 }
 
 impl ShortTranslate for Weekday {
     fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
-        write!(
-            f,
-            "{}",
-            match language {
-                English => match self {
-                    Sun => "Sun",
-                    Mon => "Mon",
-                    Tue => "Tue",
-                    Wed => "Wed",
-                    Thu => "Thu",
-                    Fri => "Fri",
-                    Sat => "Sat",
-                },
-                _ => match self {
-                    Sun => "日",
-                    Mon => "一",
-                    Tue => "二",
-                    Wed => "三",
-                    Thu => "四",
-                    Fri => "五",
-                    Sat => "六",
-                },
-            }
-        )
+        write!(f, "{}", self.static_translate(language))
+    }
+}
+
+impl StaticTranslate for Weekday {
+    fn static_translate(&self, language: Language) -> &'static str {
+        let index = self.num_days_from_sunday() as usize * 3;
+        &(match language {
+            English => "SunMonTueWedThuFriSat",
+            _ => "日一二三四五六",
+        })[index..index + 3]
     }
 }
 
@@ -276,5 +262,61 @@ impl Translate for ChineseDate {
             TranslateAdapter(&ChineseMonth(self.month(), self.leap()), language),
             TranslateAdapter(&ChineseDay(self.day()), language),
         )
+    }
+}
+
+impl StaticTranslate for SolarTerm {
+    fn static_translate(&self, language: Language) -> &'static str {
+        let ordinal = self.as_ordinal() as usize;
+        if language == English {
+            [
+                "Xiaohan",
+                "Dahan",
+                "Lichun",
+                "Yushui",
+                "Jingzhe",
+                "Chunfen",
+                "Qingming",
+                "Guyu",
+                "Lixia",
+                "Xiaoman",
+                "Mangzhong",
+                "Xiazhi",
+                "Xiaoshu",
+                "Dashu",
+                "Liqiu",
+                "Chushu",
+                "Bailu",
+                "Qiufen",
+                "Hanlu",
+                "Shuangjiang",
+                "Lidong",
+                "Xiaoxue",
+                "Daxue",
+                "Dongzhi",
+            ][ordinal]
+        } else {
+            &(match language {
+                ChineseSimplified => "小寒大寒立春雨水惊蛰春分清明谷雨立夏小满芒种夏至小暑大暑立秋处暑白露秋分寒露霜降立冬小雪大雪冬至",
+                ChineseTraditional => "小寒大寒立春雨水驚蟄春分清明穀雨立夏小滿芒種夏至小暑大暑立秋處暑白露秋分寒露霜降立冬小雪大雪冬至",
+                English => unreachable!(),
+            })[ordinal * 6..ordinal * 6 + 6]
+        }
+    }
+}
+
+impl Translate for SolarTerm {
+    fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.static_translate(language))
+    }
+}
+
+impl ShortTranslate for SolarTerm {
+    fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        if language == English && self.static_translate(English).len() > 6 {
+            write!(f, "{}.", &self.static_translate(English)[..5])
+        } else {
+            self.translate(language, f)
+        }
     }
 }

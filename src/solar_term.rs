@@ -81,7 +81,6 @@ pub fn get_solar_term(date: &impl chrono::Datelike) -> Option<SolarTerm> {
     })?;
     let ordinal0 = date.month0() as u8 * 2;
     let ordinal1 = ordinal0 + 1;
-    dbg!(ordinal0, ordinal1);
     let day = date.day() as u8;
     if day == solar_terms[ordinal0 as usize] {
         SolarTerm::from_ordinal(ordinal0)
