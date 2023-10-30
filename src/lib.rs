@@ -1,3 +1,22 @@
+/*!
+# Nongli: A Rust library and CLI tool for Chinese calendar
+Talk is cheap, let me show the code.
+```
+fn test() {
+    use chrono::NaiveDate;
+    use nongli::{ChineseDate, SolarTerm};
+    let date = NaiveDate::from_ymd_opt(2023, 10, 30).unwrap();
+    let chinese_date = ChineseDate::new(2023, 09, false, 16).unwrap();
+    assert_eq!(ChineseDate::from_gregorian(&date), Some(chinese_date));
+    assert_eq!(chinese_date.to_gregorian(), date);
+    assert_eq!(
+        SolarTerm::from_date(&NaiveDate::from_ymd_opt(2023, 10, 25).unwrap()),
+        Some(SolarTerm::Shuangjiang)
+    );
+}
+```
+*/
+
 pub mod calendar;
 pub mod chinese_date;
 pub mod data;
@@ -5,6 +24,7 @@ pub mod iter;
 pub mod language;
 pub mod solar_term;
 
+pub use chinese_date::ChineseDate;
 pub use solar_term::SolarTerm;
 
 pub fn is_weekend(weekday: chrono::Weekday) -> bool {
