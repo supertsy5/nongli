@@ -19,12 +19,16 @@ cargo install --git https://github.com/supertsy5/nongli
 Talk is cheap, let me show the code.
 ```rust
 fn test() {
+    use chrono::NaiveDate;
     use nongli::{ChineseDate, SolarTerm};
-    let date = chrono::NaiveDate::from_ymd_opt(2023, 10, 30).unwrap();
+    let date = NaiveDate::from_ymd_opt(2023, 10, 30).unwrap();
     let chinese_date = ChineseDate::new(2023, 09, false, 16).unwrap();
-    assert_eq!(ChineseDate::from_gregorian(date), chinese_date);
+    assert_eq!(ChineseDate::from_gregorian(&date), Some(chinese_date));
     assert_eq!(chinese_date.to_gregorian(), date);
-    assert_eq!(NaiveDate::from_ymd_opt(2023, 10, 25).unwrap(), Some(SolarTerm::Shangjiang));
+    assert_eq!(
+        SolarTerm::from_date(&NaiveDate::from_ymd_opt(2023, 10, 25).unwrap()),
+        Some(SolarTerm::Shuangjiang)
+    );
 }
 ```
 
