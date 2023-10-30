@@ -8,6 +8,12 @@ Bug reports are welcome.
 cargo install --git https://github.com/supertsy5/nongli
 ```
 ## Development
+Tip: run
+```
+. aliases.sh
+```
+for common aliases.
+
 Clone this repository and run:
 ```sh
 cargo build
