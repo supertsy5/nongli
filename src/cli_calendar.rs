@@ -80,7 +80,7 @@ pub struct TripleCalendar(pub Calendar);
 #[derive(Clone, Copy, Debug)]
 pub struct YearCalendar {
     pub year: u16,
-    pub today: NaiveDate,
+    pub today: Option<NaiveDate>,
     pub options: Options,
     pub landscape: bool,
 }
@@ -199,9 +199,10 @@ impl Display for BasicMonthCalendar {
         let language = options.language;
         let cell_width = cell_width(&options);
         let days = days_of_month(year, month);
-        let highlight_today = options.highlight_today
-            && year == today.year() as u16
-            && month.number_from_month() == today.month();
+        let today_day = today.and_then(|today| {
+            (year == today.year() as u16 && month.number_from_month() == today.month())
+                .then(|| today.day())
+        });
 
         let weekday_of_1st = NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), 1)
             .unwrap()
@@ -232,7 +233,7 @@ impl Display for BasicMonthCalendar {
                         .unwrap();
                 if options.color {
                     let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-                    let style = if highlight_today && day == today.day() as u8 {
+                    let style = if today_day.is_some_and(|today| day == today as u8) {
                         if is_weekend {
                             Style::new()
                                 .fg_color(Some(WEEKEND_COLOR))
@@ -254,7 +255,7 @@ impl Display for BasicMonthCalendar {
                     )?;
                 } else {
                     #[allow(clippy::collapsible_if)]
-                    if highlight_today && day == today.day() as u8 {
+                    if today_day.is_some_and(|today| day == today as u8) {
                         write!(f, "[{day:^0$}]", cell_width - 2)
                     } else {
                         write!(f, "{day:^0$}", cell_width)
@@ -317,7 +318,7 @@ impl Display for BasicMonthCalendar {
                         } else if is_weekend {
                             style = style.fg_color(Some(WEEKEND_COLOR))
                         };
-                        if highlight_today && day == today.day() as u8 {
+                        if today_day.is_some_and(|today| day == today as u8) {
                             style = if color.is_some() || is_weekend {
                                 style.bg_color(Some(WHITE))
                             } else {
@@ -377,9 +378,10 @@ impl Display for ListCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let options = self.0.options;
         let language = options.language;
-        let highlight_today = options.highlight_today
-            && self.0.year as i32 == self.0.today.year()
-            && self.0.month.number_from_month() == self.0.today.month();
+        let today_day = self
+            .0
+            .today
+            .and_then(|today| (self.0.year == today.year() as u16).then(|| today.day()));
         writeln!(
             f,
             "{}:",
@@ -399,7 +401,7 @@ impl Display for ListCalendar {
                 day as u32,
             )
             .unwrap();
-            let is_today = highlight_today && self.0.today.day() == day as u32;
+            let is_today = today_day.is_some_and(|today| day == today as u8);
             let weekday = date.weekday();
             let weekend = is_weekend(weekday);
             let weekday_string = weekday.translate_to_string(language);

@@ -6,7 +6,6 @@ pub struct Options {
     pub language: Language,
     pub enable_chinese: bool,
     pub start_on_monday: bool,
-    pub highlight_today: bool,
     pub color: bool,
 }
 
@@ -14,7 +13,7 @@ pub struct Options {
 pub struct Calendar {
     pub year: u16,
     pub month: Month,
-    pub today: NaiveDate,
+    pub today: Option<NaiveDate>,
     pub options: Options,
 }
 
@@ -84,12 +83,11 @@ fn test() {
     let calendar = Calendar {
         year: 2025,
         month: Month::January,
-        today: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+        today: NaiveDate::from_ymd_opt(2025, 1, 1),
         options: Options {
             color: false,
             enable_chinese: false,
             language: Language::English,
-            highlight_today: false,
             start_on_monday: false,
         },
     };
