@@ -139,9 +139,7 @@ impl<'a> Display for ZipByLine<'a> {
 
 impl Display for WeekLine {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        for weekday in
-            Weekdays(if self.0.start_on_monday { Mon } else { Sun }).take(7)
-        {
+        for weekday in Weekdays(if self.0.start_on_monday { Mon } else { Sun }).take(7) {
             let centered = Aligned(
                 TranslateAdapter(&Short(&weekday), self.0.language).to_string(),
                 Center,
@@ -386,7 +384,11 @@ impl Display for ListCalendar {
             f,
             "{}:",
             TranslateAdapter(
-                &MonthTitle(self.0.year, self.0.month, options.enable_chinese),
+                &MonthTitle {
+                    year: self.0.year,
+                    month: self.0.month,
+                    enable_chinese: options.enable_chinese,
+                },
                 language,
             )
         )?;
@@ -565,7 +567,11 @@ impl Display for YearCalendar {
             f,
             "{}",
             Aligned(
-                YearTitle(self.year, options.enable_chinese).translate_to_string(language),
+                YearTitle {
+                    year: self.year,
+                    enable_chinese: options.enable_chinese,
+                }
+                .translate_to_string(language),
                 Center,
                 if self.landscape {
                     cell_width * 28 + 3

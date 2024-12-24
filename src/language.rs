@@ -39,10 +39,17 @@ pub enum Language {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct YearTitle(pub u16, pub bool);
+pub struct YearTitle {
+    pub year: u16,
+    pub enable_chinese: bool,
+}
 
 #[derive(Clone, Copy, Debug)]
-pub struct MonthTitle(pub u16, pub Month, pub bool);
+pub struct MonthTitle {
+    pub year: u16,
+    pub month: Month,
+    pub enable_chinese: bool,
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct TranslateAdapter<'a, T: Translate>(pub &'a T, pub Language);
@@ -76,7 +83,11 @@ impl<T: Translate> Display for TranslateAdapter<'_, T> {
 
 impl From<Calendar> for MonthTitle {
     fn from(value: Calendar) -> Self {
-        Self(value.year, value.month, value.options.enable_chinese)
+        Self {
+            year: value.year,
+            month: value.month,
+            enable_chinese: value.options.enable_chinese,
+        }
     }
 }
 
@@ -163,11 +174,20 @@ impl Translate for ChineseDay {
 impl Translate for MonthTitle {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         match language {
-            English => write!(f, "{} {}", self.1.name(), self.0),
-            chinese => write!(f, "{}年 {}", self.0, TranslateAdapter(&self.1, chinese)),
+            English => write!(f, "{} {}", self.month.name(), self.year),
+            chinese => write!(
+                f,
+                "{}年 {}",
+                self.year,
+                TranslateAdapter(&self.month, chinese)
+            ),
         }?;
-        if self.2 {
-            write!(f, " {}", TranslateAdapter(&ChineseYear(self.0), language))
+        if self.enable_chinese {
+            write!(
+                f,
+                " {}",
+                TranslateAdapter(&ChineseYear(self.year), language)
+            )
         } else {
             Ok(())
         }
@@ -177,11 +197,15 @@ impl Translate for MonthTitle {
 impl Translate for YearTitle {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         match language {
-            English => write!(f, "{}", self.0),
-            _ => write!(f, "{}年", self.0),
+            English => write!(f, "{}", self.year),
+            _ => write!(f, "{}年", self.year),
         }?;
-        if self.1 {
-            write!(f, " {}", TranslateAdapter(&ChineseYear(self.0), language))
+        if self.enable_chinese {
+            write!(
+                f,
+                " {}",
+                TranslateAdapter(&ChineseYear(self.year), language)
+            )
         } else {
             Ok(())
         }

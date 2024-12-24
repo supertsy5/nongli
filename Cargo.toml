@@ -1,6 +1,6 @@
 [package]
 name = "nongli"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["SUPERTSY5 <0x7f178375@gmail.com>"]
 description = "A Rust library and CLI tool for Chinese calendar"
@@ -20,5 +20,5 @@ cli = ["anstyle"]
 [dependencies]
 anstyle = { version = "^1.0.4", optional = true}
 chrono = { version = "^0.4.31", features = ["serde"] }
-clap = { version = "4.4.6", features = ["cargo", "unstable-doc"], optional = true }
+clap = { version = "^4.4.6", features = ["cargo", "unstable-doc"], optional = true }
 serde = { version = "^1.0.188", features = ["derive"] }
