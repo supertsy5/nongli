@@ -6,7 +6,7 @@ authors = ["SUPERTSY5 <0x7f178375@gmail.com>"]
 description = "A Rust library and CLI tool for Chinese calendar"
 license = "MIT"
 documentation = "https://docs.rs/nongli"
-repository = "https://github.io/supertsy5/nongli"
+repository = "https://github.com/supertsy5/nongli"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
