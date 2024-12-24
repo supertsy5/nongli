@@ -88,10 +88,10 @@ impl SolarTerm {
 #[test]
 fn test() {
     for (i, solar_terms) in SOLAR_TERMS.iter().enumerate() {
-        let year = i + 1900;
+        let year = i as i32 + 1900;
         for (j, day) in solar_terms.iter().enumerate() {
             let month = j as u32 / 2 + 1;
-            let date = chrono::NaiveDate::from_ymd_opt(year as i32, month, *day as u32).unwrap();
+            let date = chrono::NaiveDate::from_ymd_opt(year, month, *day as u32).unwrap();
             dbg!(date);
             assert_eq!(
                 SolarTerm::from_date(&date),

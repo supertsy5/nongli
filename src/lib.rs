@@ -34,11 +34,11 @@ pub fn is_weekend(weekday: chrono::Weekday) -> bool {
     [Sun, Sat].contains(&weekday)
 }
 
-pub fn is_leap_year(year: u16) -> bool {
+pub fn is_leap_year(year: i32) -> bool {
     year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
-pub fn days_of_year(year: u16) -> u16 {
+pub fn days_of_year(year: i32) -> u16 {
     if is_leap_year(year) {
         366
     } else {
@@ -46,7 +46,7 @@ pub fn days_of_year(year: u16) -> u16 {
     }
 }
 
-pub fn days_of_month(year: u16, month: chrono::Month) -> u8 {
+pub fn days_of_month(year: i32, month: chrono::Month) -> u8 {
     use chrono::Month::*;
     match month {
         January => 31,

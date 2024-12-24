@@ -40,13 +40,13 @@ pub enum Language {
 
 #[derive(Clone, Copy, Debug)]
 pub struct YearTitle {
-    pub year: u16,
+    pub year: i32,
     pub enable_chinese: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct MonthTitle {
-    pub year: u16,
+    pub year: i32,
     pub month: Month,
     pub enable_chinese: bool,
 }

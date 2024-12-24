@@ -79,7 +79,7 @@ pub struct TripleCalendar(pub Calendar);
 
 #[derive(Clone, Copy, Debug)]
 pub struct YearCalendar {
-    pub year: u16,
+    pub year: i32,
     pub today: Option<NaiveDate>,
     pub options: Options,
     pub landscape: bool,
@@ -200,11 +200,11 @@ impl Display for BasicMonthCalendar {
         let cell_width = cell_width(&options);
         let days = days_of_month(year, month);
         let today_day = today.and_then(|today| {
-            (year == today.year() as u16 && month.number_from_month() == today.month())
+            (year == today.year() && month.number_from_month() == today.month())
                 .then(|| today.day())
         });
 
-        let weekday_of_1st = NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), 1)
+        let weekday_of_1st = NaiveDate::from_ymd_opt(year, month.number_from_month(), 1)
             .unwrap()
             .weekday();
 
@@ -229,7 +229,7 @@ impl Display for BasicMonthCalendar {
             }
             for day in start_day..end_day {
                 let date =
-                    NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), day as u32)
+                    NaiveDate::from_ymd_opt(year, month.number_from_month(), day as u32)
                         .unwrap();
                 if options.color {
                     let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
@@ -276,7 +276,7 @@ impl Display for BasicMonthCalendar {
                 }
                 for day in start_day..end_day {
                     let date =
-                        NaiveDate::from_ymd_opt(year as i32, month.number_from_month(), day as u32)
+                        NaiveDate::from_ymd_opt(year, month.number_from_month(), day as u32)
                             .unwrap();
                     let (string, color) = ChineseDate::from_gregorian(&date)
                         .map(|ch_date| {
@@ -381,7 +381,7 @@ impl Display for ListCalendar {
         let today_day = self
             .0
             .today
-            .and_then(|today| (self.0.year == today.year() as u16).then(|| today.day()));
+            .and_then(|today| (self.0.year == today.year()).then(|| today.day()));
         writeln!(
             f,
             "{}:",
@@ -396,7 +396,7 @@ impl Display for ListCalendar {
         )?;
         for day in 1..=days_of_month(self.0.year, self.0.month) {
             let date = NaiveDate::from_ymd_opt(
-                self.0.year as i32,
+                self.0.year,
                 self.0.month.number_from_month(),
                 day as u32,
             )

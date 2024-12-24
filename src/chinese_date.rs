@@ -4,14 +4,14 @@ use crate::data::{CHUNJIE, DATA};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChineseDate {
-    year: u16,
+    year: i32,
     month: u8,
     leap: bool,
     day: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ChineseYear(pub u16);
+pub struct ChineseYear(pub i32);
 
 #[derive(Clone, Copy, Debug)]
 pub struct ChineseMonth(pub u8, pub bool);
@@ -19,13 +19,13 @@ pub struct ChineseMonth(pub u8, pub bool);
 #[derive(Clone, Copy, Debug)]
 pub struct ChineseDay(pub u8);
 
-pub fn data(year: u16) -> Option<u32> {
+pub fn data(year: i32) -> Option<u32> {
     (1900..=2100)
         .contains(&year)
         .then(|| DATA[year as usize - 1900])
 }
 
-pub fn short_or_long(year: u16) -> Option<u16> {
+pub fn short_or_long(year: i32) -> Option<u16> {
     data(year).map(|data| {
         let leap_month = data as u8 & 0x0f;
         (if leap_month > 0 {
@@ -38,7 +38,7 @@ pub fn short_or_long(year: u16) -> Option<u16> {
     })
 }
 
-pub fn ordinal_month(year: u16, month: u8, leap: bool) -> Option<u8> {
+pub fn ordinal_month(year: i32, month: u8, leap: bool) -> Option<u8> {
     let data = data(year)?;
     if !(1..=12).contains(&month) {
         return None;
@@ -54,13 +54,13 @@ pub fn ordinal_month(year: u16, month: u8, leap: bool) -> Option<u8> {
     })
 }
 
-pub fn is_long_month(year: u16, month: u8, leap: bool) -> Option<bool> {
+pub fn is_long_month(year: i32, month: u8, leap: bool) -> Option<bool> {
     ordinal_month(year, month, leap).and_then(|ord_month| {
         short_or_long(year).map(|short_long| short_long >> (12 - ord_month) & 1 > 0)
     })
 }
 
-pub fn leap_month(year: u16) -> u8 {
+pub fn leap_month(year: i32) -> u8 {
     match data(year) {
         Some(data) => data as u8 & 0x0f,
         None => 0,
@@ -68,7 +68,7 @@ pub fn leap_month(year: u16) -> u8 {
 }
 
 impl ChineseDate {
-    pub fn new(year: u16, month: u8, leap: bool, day: u8) -> Option<Self> {
+    pub fn new(year: i32, month: u8, leap: bool, day: u8) -> Option<Self> {
         let data = data(year)?;
         (!leap || data as u8 & 0x0f == month).then_some(ChineseDate {
             year,
@@ -78,11 +78,10 @@ impl ChineseDate {
         })
     }
     pub fn from_gregorian(date: &impl chrono::Datelike) -> Option<Self> {
-        let year = date.year();
+        let mut year = date.year();
         if !(1900..=2100).contains(&year) {
             return None;
         }
-        let mut year = year as u16;
         let mut index = year as usize - 1900;
         let ordinal = date.ordinal0();
         let chunjie = crate::data::CHUNJIE[index] as u32;
@@ -99,13 +98,13 @@ impl ChineseDate {
 
         Self::from_ordinal(year, chinese_ordinal)
     }
-    pub fn from_ordinal(year: u16, ordinal: u16) -> Option<Self> {
+    pub fn from_ordinal(year: i32, ordinal: u16) -> Option<Self> {
         let mut month = 0u8;
         let mut day = ordinal;
         let leap_month = leap_month(year);
         let short_long = short_or_long(year)?;
         for i in 0..=12 {
-            let days_of_month = (short_long >> (12 - i) & 1) as u16 + 29;
+            let days_of_month = (short_long >> (12 - i) & 1) + 29;
             if day < days_of_month {
                 month = i + 1;
                 break;
@@ -128,7 +127,7 @@ impl ChineseDate {
             day: day as u8 + 1,
         })
     }
-    pub fn year(&self) -> u16 {
+    pub fn year(&self) -> i32 {
         self.year
     }
     pub fn month(&self) -> u8 {
@@ -171,20 +170,20 @@ impl ChineseDate {
         let days_of_year = crate::days_of_year(self.year);
         dbg!(ordinal);
         let year = if ordinal < days_of_year {
-            self.year as i32
+            self.year
         } else {
             ordinal -= days_of_year;
-            self.year as i32 + 1
+            self.year + 1
         };
         NaiveDate::from_yo_opt(year, ordinal as u32).unwrap()
     }
 }
 
 impl ChineseYear {
-    pub fn new(year: u16) -> Option<Self> {
+    pub fn new(year: i32) -> Option<Self> {
         (1900..=2100).contains(&year).then_some(Self(year))
     }
-    pub fn get(self) -> u16 {
+    pub fn get(self) -> i32 {
         self.0
     }
 }
@@ -214,7 +213,7 @@ impl ChineseDay {
 #[test]
 fn test() {
     #[allow(clippy::type_complexity)]
-    const EXAMPLES: &[((i32, u32, u32), (u16, u8, bool, u8))] = &[
+    const EXAMPLES: &[((i32, u32, u32), (i32, u8, bool, u8))] = &[
         ((1970, 1, 1), (1969, 11, false, 24)),
         ((2023, 1, 1), (2022, 12, false, 10)),
         ((2023, 1, 22), (2023, 1, false, 1)),

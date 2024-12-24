@@ -11,7 +11,7 @@ pub struct Options {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Calendar {
-    pub year: u16,
+    pub year: i32,
     pub month: Month,
     pub today: Option<NaiveDate>,
     pub options: Options,
@@ -61,7 +61,7 @@ impl Iterator for Iter<'_> {
         let mut array = [Option::<NaiveDate>::None; 7];
         while self.day <= days_of_month(self.calendar.year, self.calendar.month) {
             let date = NaiveDate::from_ymd_opt(
-                self.calendar.year as i32,
+                self.calendar.year,
                 self.calendar.month.number_from_month(),
                 self.day as u32,
             )

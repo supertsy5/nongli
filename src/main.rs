@@ -36,7 +36,7 @@ fn cmd() -> Command {
         )
         .arg(
             arg!(-y --year [year] "Year")
-                .value_parser(value_parser!(u16))
+                .value_parser(value_parser!(i32))
                 .default_missing_value(chrono::Local::now().year().to_string()),
         )
         .arg(
@@ -111,25 +111,24 @@ fn main() {
         language,
         enable_chinese,
         start_on_monday,
-        highlight_today,
         color,
     };
 
-    let year = matches.get_one::<u16>("year").copied();
+    let year = matches.get_one::<i32>("year").copied();
     let month = matches
         .get_one::<u8>("month")
         .copied()
         .or_else(|| year.is_none().then_some(today.month() as u8))
         .and_then(|month| Month::try_from(month).ok());
 
-    let year = year.unwrap_or_else(|| today.year() as u16);
+    let year = year.unwrap_or_else(|| today.year());
 
     match month {
         Some(month) if !(landscape || portrait) => {
             let calendar = Calendar {
                 year,
                 month,
-                today,
+                today: highlight_today.then_some(today),
                 options,
             };
             if list {
@@ -157,7 +156,7 @@ fn main() {
                         ListCalendar(Calendar {
                             year,
                             month: Month::try_from(month).unwrap(),
-                            today,
+                            today: highlight_today.then_some(today),
                             options,
                         })
                     )
@@ -167,7 +166,7 @@ fn main() {
                     "{}",
                     YearCalendar {
                         year,
-                        today,
+                        today: highlight_today.then_some(today),
                         options,
                         landscape,
                     }
