@@ -1,5 +1,5 @@
-use chrono::{Month, NaiveDate};
 use crate::language::Language;
+use chrono::{Month, NaiveDate};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Options {

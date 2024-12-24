@@ -18,9 +18,9 @@ fn test() {
 */
 
 pub mod calendar;
+pub mod chinese_date;
 #[cfg(feature = "cli")]
 pub mod cli_calendar;
-pub mod chinese_date;
 pub mod data;
 pub mod iter;
 pub mod language;
