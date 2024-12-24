@@ -1,8 +1,8 @@
 [package]
 name = "nongli"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
-authors = ["SUPERTSY5 <supertsy5@proton.me>"]
+authors = ["SUPERTSY5 <0x7f178375@gmail.com>"]
 description = "A Rust library and CLI tool for Chinese calendar"
 license = "MIT"
 documentation = "https://docs.rs/nongli"

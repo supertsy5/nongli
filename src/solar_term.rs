@@ -1,4 +1,4 @@
-use crate::data::{SOLAR_TERMS, SOLAR_TERMS_2020S};
+use crate::data::SOLAR_TERMS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SolarTerm {
@@ -67,13 +67,7 @@ impl SolarTerm {
         if year < 1900 {
             return None;
         }
-        let solar_terms = SOLAR_TERMS.get(date.year() as usize - 1900).or_else(|| {
-            if year >= 2020 {
-                SOLAR_TERMS_2020S.get(date.year() as usize - 2020)
-            } else {
-                None
-            }
-        })?;
+        let solar_terms = SOLAR_TERMS.get(year as usize - 1900)?;
         let ordinal0 = date.month0() as u8 * 2;
         let ordinal1 = ordinal0 + 1;
         let day = date.day() as u8;
