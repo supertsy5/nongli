@@ -4,6 +4,7 @@ use chrono::{Month, Weekday};
 use Language::*;
 
 use crate::{
+    calendar::Calendar,
     chinese_date::{ChineseDate, ChineseDay, ChineseMonth, ChineseYear},
     SolarTerm,
 };
@@ -67,13 +68,19 @@ pub trait StaticTranslate {
     fn static_translate(&self, language: Language) -> &'static str;
 }
 
-impl<'a, T: Translate> Display for TranslateAdapter<'a, T> {
+impl<T: Translate> Display for TranslateAdapter<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         self.0.translate(self.1, f)
     }
 }
 
-impl<'a, T: ShortTranslate> Translate for Short<'a, T> {
+impl From<Calendar> for MonthTitle {
+    fn from(value: Calendar) -> Self {
+        Self(value.year, value.month, value.options.enable_chinese)
+    }
+}
+
+impl<T: ShortTranslate> Translate for Short<'_, T> {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         self.0.short_translate(language, f)
     }

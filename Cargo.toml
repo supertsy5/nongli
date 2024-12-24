@@ -12,10 +12,13 @@ repository = "https://github.io/supertsy5/nongli"
 
 [[bin]]
 name = "nongli"
-required-features = ["clap"]
+required-features = ["cli", "clap"]
+
+[features]
+cli = ["anstyle"]
 
 [dependencies]
-anstyle = "^1.0.4"
+anstyle = { version = "^1.0.4", optional = true}
 chrono = { version = "^0.4.31", features = ["serde"] }
-serde = { version = "^1.0.188", features = ["derive"] }
 clap = { version = "4.4.6", features = ["cargo", "unstable-doc"], optional = true }
+serde = { version = "^1.0.188", features = ["derive"] }

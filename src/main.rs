@@ -3,9 +3,8 @@ use std::io::IsTerminal;
 use chrono::{Datelike, Month};
 use clap::{arg, value_parser, Command};
 use nongli::{
-    calendar::{
-        BasicMonthCalendar, ListCalendar, MonthCalendar, Options, TripleCalendar, YearCalendar,
-    },
+    calendar::{Calendar, Options},
+    cli_calendar::{ListCalendar, MonthCalendar, TripleCalendar, YearCalendar},
     language::Language::*,
 };
 
@@ -127,7 +126,7 @@ fn main() {
 
     match month {
         Some(month) if !(landscape || portrait) => {
-            let calendar = BasicMonthCalendar {
+            let calendar = Calendar {
                 year,
                 month,
                 today,
@@ -155,7 +154,7 @@ fn main() {
                 for month in 1..=12 {
                     print!(
                         "{}",
-                        ListCalendar(BasicMonthCalendar {
+                        ListCalendar(Calendar {
                             year,
                             month: Month::try_from(month).unwrap(),
                             today,
