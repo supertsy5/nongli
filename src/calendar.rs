@@ -59,7 +59,7 @@ impl Calendar {
 impl Iterator for Iter<'_> {
     type Item = [Option<Cell>; 7];
     fn next(&mut self) -> Option<Self::Item> {
-        if self.day >= days_of_month(self.calendar.year, self.calendar.month) {
+        if self.day > days_of_month(self.calendar.year, self.calendar.month) {
             return None;
         }
         let start_on_monday = self.calendar.options.start_on_monday;
