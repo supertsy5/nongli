@@ -1,6 +1,6 @@
 [package]
 name = "nongli"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 authors = ["SUPERTSY5 <0x7f178375@gmail.com>"]
 description = "A Rust library and CLI tool for Chinese calendar"

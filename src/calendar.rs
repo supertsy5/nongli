@@ -1,7 +1,7 @@
-use crate::{days_of_month, is_weekend, language::Language, ChineseDate, SolarTerm};
+use crate::{days_of_month, is_weekend, language::{Language, MonthTitle}, ChineseDate, SolarTerm};
 use chrono::{Datelike, Month, NaiveDate, Weekday};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Options {
     pub language: Language,
     pub enable_chinese: bool,
@@ -9,7 +9,7 @@ pub struct Options {
     pub color: bool,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Calendar {
     pub year: i32,
     pub month: Month,
@@ -52,6 +52,13 @@ impl Calendar {
         Iter {
             calendar: self,
             day: 1,
+        }
+    }
+    pub fn title(&self) -> MonthTitle {
+        MonthTitle {
+            year: self.year,
+            month: self.month,
+            enable_chinese: self.options.enable_chinese,
         }
     }
 }
