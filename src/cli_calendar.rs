@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use chrono::{
     Datelike, Month, NaiveDate,
-    Weekday::{self, Mon, Sun},
+    Weekday::{Mon, Sun},
 };
 
 use crate::{
@@ -190,168 +190,131 @@ impl Display for QuadWeekLine {
 
 impl Display for BasicMonthCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        let Calendar {
-            year,
-            month,
-            today,
-            options,
-        } = self.0;
-        let language = options.language;
+        let options = self.0.options;
         let cell_width = cell_width(&options);
-        let days = days_of_month(year, month);
-        let today_day = today.and_then(|today| {
-            (year == today.year() && month.number_from_month() == today.month())
-                .then(|| today.day())
-        });
-
-        let weekday_of_1st = NaiveDate::from_ymd_opt(year, month.number_from_month(), 1)
-            .unwrap()
-            .weekday();
-
-        let leading_spaces = if options.start_on_monday {
-            weekday_of_1st.num_days_from_monday()
-        } else {
-            weekday_of_1st.num_days_from_sunday()
-        } as u8;
-
-        let trailing_spaces = (7 - (days + leading_spaces) % 7) % 7;
-
-        let mut week_size = 7 - leading_spaces as u8;
-        let mut start_day = 1u8;
         let mut lines = 0u8;
-
-        while start_day <= days {
-            let end_day = (start_day + week_size).min(days + 1);
-            if start_day == 1 {
-                for _ in 0..leading_spaces as usize * cell_width {
-                    write!(f, " ")?;
-                }
-            }
-            for day in start_day..end_day {
-                let date =
-                    NaiveDate::from_ymd_opt(year, month.number_from_month(), day as u32)
-                        .unwrap();
-                if options.color {
-                    let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-                    let style = if today_day.is_some_and(|today| day == today as u8) {
-                        if is_weekend {
-                            Style::new()
-                                .fg_color(Some(WEEKEND_COLOR))
-                                .bg_color(Some(WHITE))
+        for line in self.0.iter() {
+            for cell in &line {
+                if let Some(cell) = cell {
+                    if options.color {
+                        let style = if cell.today {
+                            if cell.weekend {
+                                Style::new()
+                                    .fg_color(Some(WEEKEND_COLOR))
+                                    .bg_color(Some(WHITE))
+                            } else {
+                                Style::new().invert()
+                            }
+                        } else if cell.weekend {
+                            Style::new().fg_color(Some(WEEKEND_COLOR))
                         } else {
-                            Style::new().invert()
-                        }
-                    } else if is_weekend {
-                        Style::new().fg_color(Some(WEEKEND_COLOR))
+                            Style::new()
+                        };
+                        write!(
+                            f,
+                            "{}{:^cell_width$}{}",
+                            style.render(),
+                            cell.date.day(),
+                            style.render_reset(),
+                        )?;
                     } else {
-                        Style::new()
-                    };
-                    write!(
-                        f,
-                        "{}{day:^2$}{}",
-                        style.render(),
-                        style.render_reset(),
-                        cell_width,
-                    )?;
+                        #[allow(clippy::collapsible_if)]
+                        if cell.today {
+                            write!(f, "[{0:^1$}]", cell.date.day(), cell_width - 2)
+                        } else {
+                            write!(f, "{0:^1$}", cell.date.day(), cell_width)
+                        }?;
+                    }
                 } else {
-                    #[allow(clippy::collapsible_if)]
-                    if today_day.is_some_and(|today| day == today as u8) {
-                        write!(f, "[{day:^0$}]", cell_width - 2)
-                    } else {
-                        write!(f, "{day:^0$}", cell_width)
-                    }?;
-                }
-            }
-            if end_day == days + 1 {
-                for _ in 0..trailing_spaces as usize * cell_width {
-                    write!(f, " ")?;
+                    for _ in 0..cell_width {
+                        write!(f, " ")?;
+                    }
                 }
             }
             writeln!(f)?;
             if options.enable_chinese {
-                if start_day == 1 {
-                    for _ in 0..leading_spaces as usize * cell_width {
-                        write!(f, " ")?;
-                    }
-                }
-                for day in start_day..end_day {
-                    let date =
-                        NaiveDate::from_ymd_opt(year, month.number_from_month(), day as u32)
-                            .unwrap();
-                    let (string, color) = ChineseDate::from_gregorian(&date)
-                        .map(|ch_date| {
-                            let ch_day = ch_date.day();
-                            if let Some(term) = SolarTerm::from_date(&date) {
-                                (
-                                    Short(&term).translate_to_string(language),
-                                    Some(SOLAR_TERM_COLOR),
-                                )
-                            } else if ch_day == 1 {
-                                let ch_month =
-                                    ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap();
-                                (
-                                    if language == English {
-                                        format!("(M{})", TranslateAdapter(&ch_month, English))
-                                    } else {
-                                        ch_month.translate_to_string(language)
-                                    },
-                                    Some(NEW_MONTH_COLOR),
-                                )
-                            } else {
-                                let ch_day = ChineseDay::new(ch_day).unwrap();
-                                (
-                                    if language == English {
-                                        format!("({})", TranslateAdapter(&ch_day, English))
-                                    } else {
-                                        ch_day.translate_to_string(language)
-                                    },
-                                    None,
-                                )
-                            }
-                        })
-                        .unwrap_or_default();
-                    if options.color {
-                        let is_weekend = [Weekday::Sun, Weekday::Sat].contains(&date.weekday());
-                        let mut style = Style::new();
-                        if let Some(color) = color {
-                            style = style.fg_color(Some(color))
-                        } else if is_weekend {
-                            style = style.fg_color(Some(WEEKEND_COLOR))
-                        };
-                        if today_day.is_some_and(|today| day == today as u8) {
-                            style = if color.is_some() || is_weekend {
-                                style.bg_color(Some(WHITE))
-                            } else {
-                                style.invert()
-                            }
-                        };
-                        write!(
-                            f,
-                            "{}{}{}",
-                            style.render(),
-                            Aligned(&string, Center, cell_width),
-                            style.render_reset(),
-                        )
+                let language = options.language;
+                for cell in line {
+                    if let Some(cell) = cell {
+                        let (string, color) = cell
+                            .chinese_date
+                            .map(|ch_date| {
+                                let ch_day = ch_date.day();
+                                if let Some(term) = cell.solar_term {
+                                    (
+                                        Short(&term).translate_to_string(language),
+                                        Some(SOLAR_TERM_COLOR),
+                                    )
+                                } else if ch_day == 1 {
+                                    let ch_month =
+                                        ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap();
+                                    (
+                                        if language == English {
+                                            format!("(M{})", TranslateAdapter(&ch_month, English))
+                                        } else {
+                                            ch_month.translate_to_string(language)
+                                        },
+                                        Some(NEW_MONTH_COLOR),
+                                    )
+                                } else {
+                                    let ch_day = ChineseDay::new(ch_day).unwrap();
+                                    (
+                                        if language == English {
+                                            format!("({})", TranslateAdapter(&ch_day, English))
+                                        } else {
+                                            ch_day.translate_to_string(language)
+                                        },
+                                        None,
+                                    )
+                                }
+                            })
+                            .unwrap_or_default();
+                        if options.color {
+                            let mut style = Style::new();
+                            if let Some(color) = color {
+                                style = style.fg_color(Some(color))
+                            } else if cell.weekend {
+                                style = style.fg_color(Some(WEEKEND_COLOR))
+                            };
+                            if cell.today {
+                                style = if color.is_some() || cell.weekend {
+                                    style.bg_color(Some(WHITE))
+                                } else {
+                                    style.invert()
+                                }
+                            };
+                            write!(
+                                f,
+                                "{}{}{}",
+                                style.render(),
+                                Aligned(&string, Center, cell_width),
+                                style.render_reset(),
+                            )
+                        } else {
+                            write!(f, "{}", Aligned(&string, Center, cell_width))
+                        }?;
                     } else {
-                        write!(f, "{}", Aligned(&string, Center, cell_width))
-                    }?;
-                }
-                if end_day == days + 1 {
-                    for _ in 0..trailing_spaces as usize * cell_width {
-                        write!(f, " ")?;
+                        for _ in 0..cell_width {
+                            write!(f, " ")?;
+                        }
                     }
                 }
                 writeln!(f)?;
             }
-            start_day = end_day;
-            week_size = 7;
             lines += 1;
         }
-        for _ in 0..(6 - lines) * if options.enable_chinese { 2 } else { 1 } {
+        while lines < 6 {
             for _ in 0..cell_width * 7 {
                 write!(f, " ")?;
             }
             writeln!(f)?;
+            if options.enable_chinese {
+                for _ in 0..cell_width * 7 {
+                    write!(f, " ")?;
+                }
+                writeln!(f)?;
+            }
+            lines += 1;
         }
         Ok(())
     }
@@ -395,12 +358,9 @@ impl Display for ListCalendar {
             )
         )?;
         for day in 1..=days_of_month(self.0.year, self.0.month) {
-            let date = NaiveDate::from_ymd_opt(
-                self.0.year,
-                self.0.month.number_from_month(),
-                day as u32,
-            )
-            .unwrap();
+            let date =
+                NaiveDate::from_ymd_opt(self.0.year, self.0.month.number_from_month(), day as u32)
+                    .unwrap();
             let is_today = today_day.is_some_and(|today| day == today as u8);
             let weekday = date.weekday();
             let weekend = is_weekend(weekday);

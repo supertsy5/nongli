@@ -1,4 +1,4 @@
-use crate::{days_of_month, language::Language};
+use crate::{days_of_month, is_weekend, language::Language, ChineseDate, SolarTerm};
 use chrono::{Datelike, Month, NaiveDate, Weekday};
 
 #[derive(Clone, Copy, Debug)]
@@ -21,6 +21,16 @@ pub struct Calendar {
 pub struct Iter<'a> {
     calendar: &'a Calendar,
     day: u8,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Cell {
+    pub date: NaiveDate,
+    pub today: bool,
+    pub weekend: bool,
+    pub chinese_date: Option<ChineseDate>,
+    pub solar_term: Option<SolarTerm>,
 }
 
 impl Calendar {
@@ -47,7 +57,7 @@ impl Calendar {
 }
 
 impl Iterator for Iter<'_> {
-    type Item = [Option<NaiveDate>; 7];
+    type Item = [Option<Cell>; 7];
     fn next(&mut self) -> Option<Self::Item> {
         if self.day >= days_of_month(self.calendar.year, self.calendar.month) {
             return None;
@@ -58,7 +68,12 @@ impl Iterator for Iter<'_> {
         } else {
             (Weekday::Sun, Weekday::Sat)
         };
-        let mut array = [Option::<NaiveDate>::None; 7];
+        let today_day = self.calendar.today.and_then(|today| {
+            (self.calendar.year == today.year()
+                && self.calendar.month.number_from_month() == today.month())
+            .then(|| today.day())
+        });
+        let mut array = [Option::<Cell>::None; 7];
         while self.day <= days_of_month(self.calendar.year, self.calendar.month) {
             let date = NaiveDate::from_ymd_opt(
                 self.calendar.year,
@@ -67,7 +82,18 @@ impl Iterator for Iter<'_> {
             )
             .unwrap();
             let weekday = date.weekday();
-            array[weekday.days_since(start_of_week) as usize] = Some(date);
+            let (chinese_date, solar_term) = if self.calendar.options.enable_chinese {
+                (ChineseDate::from_gregorian(&date), SolarTerm::from_date(&date))
+            } else {
+                (None, None)
+            };
+            array[weekday.days_since(start_of_week) as usize] = Some(Cell {
+                date,
+                today: today_day.is_some_and(|today| today == date.day()),
+                weekend: is_weekend(date.weekday()),
+                chinese_date,
+                solar_term,
+            });
             self.day += 1;
             if weekday == end_of_week {
                 break;
@@ -86,59 +112,23 @@ fn test() {
         today: NaiveDate::from_ymd_opt(2025, 1, 1),
         options: Options {
             color: false,
-            enable_chinese: false,
+            enable_chinese: true,
             language: Language::English,
             start_on_monday: false,
         },
     };
-    assert_eq!(
-        calendar.iter().collect::<Vec<_>>(),
-        &[
-            [
-                None,
-                None,
-                None,
-                NaiveDate::from_ymd_opt(2025, 1, 1),
-                NaiveDate::from_ymd_opt(2025, 1, 2),
-                NaiveDate::from_ymd_opt(2025, 1, 3),
-                NaiveDate::from_ymd_opt(2025, 1, 4),
-            ],
-            [
-                NaiveDate::from_ymd_opt(2025, 1, 5),
-                NaiveDate::from_ymd_opt(2025, 1, 6),
-                NaiveDate::from_ymd_opt(2025, 1, 7),
-                NaiveDate::from_ymd_opt(2025, 1, 8),
-                NaiveDate::from_ymd_opt(2025, 1, 9),
-                NaiveDate::from_ymd_opt(2025, 1, 10),
-                NaiveDate::from_ymd_opt(2025, 1, 11),
-            ],
-            [
-                NaiveDate::from_ymd_opt(2025, 1, 12),
-                NaiveDate::from_ymd_opt(2025, 1, 13),
-                NaiveDate::from_ymd_opt(2025, 1, 14),
-                NaiveDate::from_ymd_opt(2025, 1, 15),
-                NaiveDate::from_ymd_opt(2025, 1, 16),
-                NaiveDate::from_ymd_opt(2025, 1, 17),
-                NaiveDate::from_ymd_opt(2025, 1, 18),
-            ],
-            [
-                NaiveDate::from_ymd_opt(2025, 1, 19),
-                NaiveDate::from_ymd_opt(2025, 1, 20),
-                NaiveDate::from_ymd_opt(2025, 1, 21),
-                NaiveDate::from_ymd_opt(2025, 1, 22),
-                NaiveDate::from_ymd_opt(2025, 1, 23),
-                NaiveDate::from_ymd_opt(2025, 1, 24),
-                NaiveDate::from_ymd_opt(2025, 1, 25),
-            ],
-            [
-                NaiveDate::from_ymd_opt(2025, 1, 26),
-                NaiveDate::from_ymd_opt(2025, 1, 27),
-                NaiveDate::from_ymd_opt(2025, 1, 28),
-                NaiveDate::from_ymd_opt(2025, 1, 29),
-                NaiveDate::from_ymd_opt(2025, 1, 30),
-                NaiveDate::from_ymd_opt(2025, 1, 31),
-                None,
-            ]
-        ]
-    );
+    let mut array = [Option::<Cell>::None; 35];
+    for day in 1u32..=31 {
+        let date = NaiveDate::from_ymd_opt(2025, 1, day).unwrap();
+        array[day as usize + 2] = Some(Cell {
+            date,
+            weekend: is_weekend(date.weekday()),
+            today: day == 1,
+            chinese_date: ChineseDate::from_gregorian(&date),
+            solar_term: SolarTerm::from_date(&date),
+        });
+    }
+    for (a, b) in calendar.iter().zip(array.chunks(7)) {
+        assert_eq!(a, b);
+    }
 }
