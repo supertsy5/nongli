@@ -67,7 +67,7 @@ impl Calendar {
         self.month = self.month.succ();
         Self::new(self.year, self.month, self.today, self.options)
     }
-    pub fn iter<'a>(&'a self) -> Iter<'a> {
+    pub fn iter(&self) -> Iter<'_> {
         Iter {
             calendar: self,
             day: 1,

@@ -79,7 +79,7 @@ pub trait ShortTranslate {
     where
         Self: Sized,
     {
-        Short(&self)
+        Short(self)
     }
 }
 
