@@ -8,11 +8,11 @@ use chrono::{
 
 use crate::{
     calendar::{Calendar, Options},
-    chinese_date::{ChineseDate, ChineseDay, ChineseMonth},
+    chinese_date::ChineseDate,
     days_of_month, is_weekend,
     iter::Weekdays,
     language::{
-        Language::*, MonthTitle, Short, ShortTranslate, StaticTranslate, Translate, YearTitle,
+        Language::*, MonthTitle, ShortTranslate, StaticTranslate, Translate, YearTitle,
     },
     SolarTerm,
 };
