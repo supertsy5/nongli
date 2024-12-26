@@ -1,4 +1,8 @@
-use crate::{days_of_month, is_weekend, language::{Language, MonthTitle}, ChineseDate, SolarTerm};
+use crate::{
+    days_of_month, is_weekend,
+    language::{Language, MonthTitle},
+    ChineseDate, SolarTerm,
+};
 use chrono::{Datelike, Month, NaiveDate, Weekday};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -11,7 +15,7 @@ pub struct Options {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Calendar {
-    pub year: i32,
+    year: i32,
     pub month: Month,
     pub today: Option<NaiveDate>,
     pub options: Options,
@@ -34,19 +38,34 @@ pub struct Cell {
 }
 
 impl Calendar {
-    pub fn pred(mut self) -> Self {
+    pub fn new(
+        year: i32, month: Month, today: Option<NaiveDate>, options: Options,
+    ) -> Option<Self> {
+        NaiveDate::from_ymd_opt(year, month.number_from_month(), 1).map(|_date| Self {
+            year,
+            month,
+            today,
+            options,
+        })
+    }
+
+    pub fn year(&self) -> i32 {
+        self.year
+    }
+
+    pub fn pred(mut self) -> Option<Self> {
         if self.month == Month::January {
             self.year -= 1;
         }
         self.month = self.month.pred();
-        self
+        Self::new(self.year, self.month, self.today, self.options)
     }
-    pub fn succ(mut self) -> Self {
+    pub fn succ(mut self) -> Option<Self> {
         if self.month == Month::December {
             self.year += 1;
         }
         self.month = self.month.succ();
-        self
+        Self::new(self.year, self.month, self.today, self.options)
     }
     pub fn iter<'a>(&'a self) -> Iter<'a> {
         Iter {
@@ -90,7 +109,10 @@ impl Iterator for Iter<'_> {
             .unwrap();
             let weekday = date.weekday();
             let (chinese_date, solar_term) = if self.calendar.options.enable_chinese {
-                (ChineseDate::from_gregorian(&date), SolarTerm::from_date(&date))
+                (
+                    ChineseDate::from_gregorian(&date),
+                    SolarTerm::from_date(&date),
+                )
             } else {
                 (None, None)
             };

@@ -1,10 +1,11 @@
-use std::io::IsTerminal;
+use std::{io::IsTerminal, process::exit};
 
 use chrono::{Datelike, Month};
 use clap::{arg, value_parser, Command};
 use nongli::{
     calendar::{Calendar, Options},
     cli_calendar::{ListCalendar, MonthCalendar, TripleCalendar, YearCalendar},
+    iter::Months,
     language::Language::*,
 };
 
@@ -36,7 +37,7 @@ fn cmd() -> Command {
         )
         .arg(
             arg!(-y --year [year] "Year")
-                .value_parser(value_parser!(i32))
+                .value_parser(value_parser!(i32).range(-262143..=262142))
                 .default_missing_value(chrono::Local::now().year().to_string()),
         )
         .arg(
@@ -125,52 +126,53 @@ fn main() {
 
     match month {
         Some(month) if !(landscape || portrait) => {
-            let calendar = Calendar {
-                year,
-                month,
-                today: highlight_today.then_some(today),
-                options,
+            let Some(calendar) =
+                Calendar::new(year, month, highlight_today.then_some(today), options)
+            else {
+                eprintln!("Date out of range");
+                exit(-1);
             };
             if list {
                 if triple {
-                    print!(
-                        "{}\n{}\n{}",
-                        ListCalendar(calendar.pred()),
-                        ListCalendar(calendar),
-                        ListCalendar(calendar.succ()),
-                    )
+                    if let Some(pred) = calendar.pred() {
+                        println!("{}", ListCalendar(pred));
+                    }
+                    println!("{}", ListCalendar(calendar));
+                    if let Some(succ) = calendar.succ() {
+                        println!("{}", ListCalendar(succ));
+                    }
                 } else {
                     print!("{}", ListCalendar(calendar));
                 }
             } else if triple {
-                print!("{}", TripleCalendar(calendar.pred()));
+                let Some(pred) = calendar.pred() else {
+                    eprintln!("Date out of range");
+                    exit(-1);
+                };
+                print!("{}", TripleCalendar(pred));
             } else {
                 print!("{}", MonthCalendar(calendar));
             }
         }
         _ => {
             if list {
-                for month in 1..=12 {
+                for month in Months(Month::January).take(12) {
                     print!(
                         "{}",
-                        ListCalendar(Calendar {
-                            year,
-                            month: Month::try_from(month).unwrap(),
-                            today: highlight_today.then_some(today),
-                            options,
-                        })
-                    )
+                        ListCalendar(
+                            Calendar::new(year, month, highlight_today.then_some(today), options)
+                                .unwrap()
+                        )
+                    );
                 }
             } else {
-                print!(
-                    "{}",
-                    YearCalendar {
-                        year,
-                        today: highlight_today.then_some(today),
-                        options,
-                        landscape,
-                    }
-                )
+                let Some(year) =
+                    YearCalendar::new(year, highlight_today.then_some(today), options, landscape)
+                else {
+                    eprintln!("Year out of range");
+                    exit(-1);
+                };
+                print!("{year}");
             }
         }
     }

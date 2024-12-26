@@ -84,7 +84,7 @@ impl<T: Translate> Display for TranslateAdapter<'_, T> {
 impl From<Calendar> for MonthTitle {
     fn from(value: Calendar) -> Self {
         Self {
-            year: value.year,
+            year: value.year(),
             month: value.month,
             enable_chinese: value.options.enable_chinese,
         }

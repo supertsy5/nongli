@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Made `Calendar` and `Options` `Eq`
 - Added function `Calendar::title`
 
+### Changed
+- Made `Calendar` and `YearCalendar` limited
+
 ## [0.3.1] - 2024-12-25
 ### Fixed
 - Fixed a bug

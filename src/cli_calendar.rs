@@ -79,7 +79,7 @@ pub struct TripleCalendar(pub Calendar);
 
 #[derive(Clone, Copy, Debug)]
 pub struct YearCalendar {
-    pub year: i32,
+    year: i32,
     pub today: Option<NaiveDate>,
     pub options: Options,
     pub landscape: bool,
@@ -344,23 +344,26 @@ impl Display for ListCalendar {
         let today_day = self
             .0
             .today
-            .and_then(|today| (self.0.year == today.year()).then(|| today.day()));
+            .and_then(|today| (self.0.year() == today.year()).then(|| today.day()));
         writeln!(
             f,
             "{}:",
             TranslateAdapter(
                 &MonthTitle {
-                    year: self.0.year,
+                    year: self.0.year(),
                     month: self.0.month,
                     enable_chinese: options.enable_chinese,
                 },
                 language,
             )
         )?;
-        for day in 1..=days_of_month(self.0.year, self.0.month) {
-            let date =
-                NaiveDate::from_ymd_opt(self.0.year, self.0.month.number_from_month(), day as u32)
-                    .unwrap();
+        for day in 1..=days_of_month(self.0.year(), self.0.month) {
+            let date = NaiveDate::from_ymd_opt(
+                self.0.year(),
+                self.0.month.number_from_month(),
+                day as u32,
+            )
+            .unwrap();
             let is_today = today_day.is_some_and(|today| day == today as u8);
             let weekday = date.weekday();
             let weekend = is_weekend(weekday);
@@ -457,9 +460,12 @@ impl Display for ListCalendar {
 impl Display for BasicTripleCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let calendar1 = self.0.succ();
-        let calendar2 = calendar1.succ();
-        let strings =
-            [self.0, calendar1, calendar2].map(|calendar| BasicMonthCalendar(calendar).to_string());
+        let calendar2 = calendar1.and_then(Calendar::succ);
+        let strings = [Some(self.0), calendar1, calendar2].map(|calendar| {
+            calendar.map_or_else(String::new, |calendar| {
+                BasicMonthCalendar(calendar).to_string()
+            })
+        });
         let mut separator = String::new();
         for _ in 0..if self.0.options.enable_chinese { 12 } else { 6 } {
             separator.push_str(" \n");
@@ -472,10 +478,13 @@ impl Display for BasicTripleCalendar {
 impl Display for BasicQuadCalendar {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let calendar1 = self.0.succ();
-        let calendar2 = calendar1.succ();
-        let calendar3 = calendar2.succ();
-        let strings = [self.0, calendar1, calendar2, calendar3]
-            .map(|calendar| BasicMonthCalendar(calendar).to_string());
+        let calendar2 = calendar1.and_then(Calendar::succ);
+        let calendar3 = calendar2.and_then(Calendar::succ);
+        let strings = [Some(self.0), calendar1, calendar2, calendar3].map(|calendar| {
+            calendar.map_or_else(String::new, |calendar| {
+                BasicMonthCalendar(calendar).to_string()
+            })
+        });
         let mut separator = String::new();
         for _ in 0..if self.0.options.enable_chinese { 12 } else { 6 } {
             separator.push_str(" \n");
@@ -498,10 +507,12 @@ impl Display for TripleCalendar {
         let options = self.0.options;
         let cell_width = cell_width(&options);
         let calendar1 = self.0.succ();
-        let calendar2 = calendar1.succ();
-        let titles = [self.0, calendar1, calendar2].map(|calendar| {
+        let calendar2 = calendar1.and_then(Calendar::succ);
+        let titles = [Some(self.0), calendar1, calendar2].map(|calendar| {
             Aligned(
-                MonthTitle::from(calendar).translate_to_string(options.language),
+                calendar.map_or_else(String::new, |calendar| {
+                    MonthTitle::from(calendar).translate_to_string(options.language)
+                }),
                 Center,
                 cell_width * 7,
             )
@@ -515,6 +526,19 @@ impl Display for TripleCalendar {
             TripleWeekLine(options),
             BasicTripleCalendar(self.0),
         )
+    }
+}
+
+impl YearCalendar {
+    pub fn new(
+        year: i32, today: Option<NaiveDate>, options: Options, landscape: bool,
+    ) -> Option<Self> {
+        NaiveDate::from_ymd_opt(year, 1, 1).map(|_| Self {
+            year,
+            today,
+            options,
+            landscape,
+        })
     }
 }
 
@@ -555,12 +579,9 @@ impl Display for YearCalendar {
                     Aligned(month2.translate_to_string(language), Center, month_width),
                     Aligned(month3.translate_to_string(language), Center, month_width),
                     QuadWeekLine(options),
-                    BasicQuadCalendar(Calendar {
-                        year: self.year,
-                        month,
-                        today: self.today,
-                        options,
-                    })
+                    BasicQuadCalendar(
+                        Calendar::new(self.year, month, self.today, options).unwrap()
+                    )
                 )?;
             }
         } else {
@@ -574,12 +595,9 @@ impl Display for YearCalendar {
                     Aligned(month1.translate_to_string(language), Center, month_width),
                     Aligned(month2.translate_to_string(language), Center, month_width),
                     TripleWeekLine(options),
-                    BasicTripleCalendar(Calendar {
-                        year: self.year,
-                        month,
-                        today: self.today,
-                        options,
-                    })
+                    BasicTripleCalendar(
+                        Calendar::new(self.year, month, self.today, options).unwrap()
+                    )
                 )?;
             }
         }
