@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the new `Calendar` system
 ### Changed
 - Made CLI features optional
-- renamed the old `calendar.rs` as `cli_calendar.rs`
+- Renamed the old `calendar.rs` as `cli_calendar.rs`
+- Change year type to `i32`
 
 ## [0.2.1] - 2024-12-24
 ### Fixed
