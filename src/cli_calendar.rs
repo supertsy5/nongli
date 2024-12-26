@@ -12,7 +12,7 @@ use crate::{
     days_of_month, is_weekend,
     iter::Weekdays,
     language::{
-        Language::*, MonthTitle, Short, StaticTranslate, Translate, TranslateAdapter, YearTitle,
+        Language::*, MonthTitle, Short, ShortTranslate, StaticTranslate, Translate, YearTitle,
     },
     SolarTerm,
 };
@@ -141,7 +141,10 @@ impl Display for WeekLine {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         for weekday in Weekdays(if self.0.start_on_monday { Mon } else { Sun }).take(7) {
             let centered = Aligned(
-                TranslateAdapter(&Short(&weekday), self.0.language).to_string(),
+                weekday
+                    .short()
+                    .translate_adapter(self.0.language)
+                    .to_string(),
                 Center,
                 cell_width(&self.0),
             );
@@ -239,32 +242,15 @@ impl Display for BasicMonthCalendar {
                         let (string, color) = cell
                             .chinese_date
                             .map(|ch_date| {
-                                let ch_day = ch_date.day();
-                                if let Some(term) = cell.solar_term {
+                                if let Some(solar_term) = cell.solar_term {
                                     (
-                                        Short(&term).translate_to_string(language),
+                                        solar_term.short().translate_to_string(language),
                                         Some(SOLAR_TERM_COLOR),
                                     )
-                                } else if ch_day == 1 {
-                                    let ch_month =
-                                        ChineseMonth::new(ch_date.month(), ch_date.leap()).unwrap();
-                                    (
-                                        if language == English {
-                                            format!("(M{})", TranslateAdapter(&ch_month, English))
-                                        } else {
-                                            ch_month.translate_to_string(language)
-                                        },
-                                        Some(NEW_MONTH_COLOR),
-                                    )
                                 } else {
-                                    let ch_day = ChineseDay::new(ch_day).unwrap();
                                     (
-                                        if language == English {
-                                            format!("({})", TranslateAdapter(&ch_day, English))
-                                        } else {
-                                            ch_day.translate_to_string(language)
-                                        },
-                                        None,
+                                        ch_date.short().translate_to_string(language),
+                                        (ch_date.day() == 1).then_some(NEW_MONTH_COLOR),
                                     )
                                 }
                             })
@@ -348,14 +334,12 @@ impl Display for ListCalendar {
         writeln!(
             f,
             "{}:",
-            TranslateAdapter(
-                &MonthTitle {
-                    year: self.0.year(),
-                    month: self.0.month,
-                    enable_chinese: options.enable_chinese,
-                },
-                language,
-            )
+            MonthTitle {
+                year: self.0.year(),
+                month: self.0.month,
+                enable_chinese: options.enable_chinese,
+            }
+            .translate_adapter(language)
         )?;
         for day in 1..=days_of_month(self.0.year(), self.0.month) {
             let date = NaiveDate::from_ymd_opt(
@@ -407,10 +391,9 @@ impl Display for ListCalendar {
                     if language == English {
                         write!(
                             f,
-                            "{:02}{}{:02}   ",
-                            chinese_date.month(),
-                            if chinese_date.leap() { '+' } else { '-' },
-                            chinese_date.day(),
+                            "{}, {}",
+                            chinese_date.chinese_day().translate_adapter(language),
+                            chinese_date.chinese_month().translate_adapter(language),
                         )
                     } else {
                         write!(
@@ -419,8 +402,8 @@ impl Display for ListCalendar {
                             Aligned(
                                 format!(
                                     "{}{}",
-                                    TranslateAdapter(&chinese_date.chinese_month(), language),
-                                    TranslateAdapter(&chinese_date.chinese_day(), language),
+                                    chinese_date.chinese_month().translate_adapter(language),
+                                    chinese_date.chinese_day().translate_adapter(language),
                                 ),
                                 Left,
                                 10,

@@ -59,16 +59,28 @@ pub struct Short<'a, T: ShortTranslate>(pub &'a T);
 
 pub trait Translate {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
+    fn translate_adapter(&self, language: Language) -> TranslateAdapter<Self>
+    where
+        Self: Sized,
+    {
+        TranslateAdapter(self, language)
+    }
     fn translate_to_string(&self, language: Language) -> String
     where
         Self: Sized,
     {
-        TranslateAdapter(self, language).to_string()
+        self.translate_adapter(language).to_string()
     }
 }
 
 pub trait ShortTranslate {
     fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult;
+    fn short(&self) -> Short<Self>
+    where
+        Self: Sized,
+    {
+        Short(&self)
+    }
 }
 
 pub trait StaticTranslate {
@@ -130,7 +142,7 @@ impl Translate for ChineseYear {
 impl Translate for ChineseMonth {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         match language {
-            English => write!(f, "{}{}", self.0, if self.1 { "+" } else { "" }),
+            English => write!(f, "{}Month {}", if self.1 { "Leap " } else { "" }, self.0),
             _ => write!(
                 f,
                 "{}{}月",
@@ -155,10 +167,32 @@ impl Translate for ChineseMonth {
     }
 }
 
+impl ShortTranslate for ChineseMonth {
+    fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        if language == English {
+            write!(f, "M{}{}", self.0, if self.1 { "+" } else { "" })
+        } else {
+            self.translate(language, f)
+        }
+    }
+}
+
 impl Translate for ChineseDay {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         match language {
-            English => self.0.fmt(f),
+            English => {
+                let suffix = if self.0 / 10 == 1 {
+                    "th"
+                } else {
+                    match self.0 % 10 {
+                        1 => "st",
+                        2 => "nd",
+                        3 => "rd",
+                        _ => "th",
+                    }
+                };
+                write!(f, "{}{suffix}", self.0)
+            }
             _ => match self.0 {
                 1..=10 => write!(f, "初{}", get_char(NUMBER, self.0 as usize - 1).unwrap()),
                 11..=19 => write!(f, "十{}", get_char(NUMBER, self.0 as usize - 11).unwrap()),
@@ -179,15 +213,11 @@ impl Translate for MonthTitle {
                 f,
                 "{}年 {}",
                 self.year,
-                TranslateAdapter(&self.month, chinese)
+                self.month.translate_adapter(chinese)
             ),
         }?;
         if self.enable_chinese {
-            write!(
-                f,
-                " {}",
-                TranslateAdapter(&ChineseYear(self.year), language)
-            )
+            write!(f, " {}", ChineseYear(self.year).translate_adapter(language))
         } else {
             Ok(())
         }
@@ -201,11 +231,7 @@ impl Translate for YearTitle {
             _ => write!(f, "{}年", self.year),
         }?;
         if self.enable_chinese {
-            write!(
-                f,
-                " {}",
-                TranslateAdapter(&ChineseYear(self.year), language)
-            )
+            write!(f, " {}", ChineseYear(self.year).translate_adapter(language))
         } else {
             Ok(())
         }
@@ -217,7 +243,7 @@ impl Translate for Month {
         if language == English {
             write!(f, "{}", self.name())
         } else {
-            write!(f, "{}月", TranslateAdapter(&Short(self), language))
+            write!(f, "{}月", self.short().translate_adapter(language))
         }
     }
 }
@@ -259,7 +285,7 @@ impl Translate for Weekday {
                 ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
                     [self.num_days_from_sunday() as usize],
             ),
-            _ => write!(f, "星期{}", TranslateAdapter(&Short(self), language)),
+            _ => write!(f, "星期{}", self.short().translate_adapter(language)),
         }
     }
 }
@@ -282,17 +308,27 @@ impl StaticTranslate for Weekday {
 
 impl Translate for ChineseDate {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
-        let relative_year = self.year() as i16 - 1984;
-        write!(
-            f,
-            "{}{}{}年{}{}月{}",
-            get_char(TIANGAN, relative_year.rem_euclid(10) as usize).unwrap(),
-            get_char(DIZHI, relative_year.rem_euclid(12) as usize).unwrap(),
-            get_char(SHENGXIAO_S, relative_year.rem_euclid(12) as usize).unwrap(),
-            if self.leap() { "闰" } else { "" },
-            TranslateAdapter(&ChineseMonth(self.month(), self.leap()), language),
-            TranslateAdapter(&ChineseDay(self.day()), language),
-        )
+        let year = self.chinese_year();
+        let month = self.chinese_month();
+        let day = self.chinese_day();
+        let year_adapter = year.translate_adapter(language);
+        let month_adapter = month.translate_adapter(language);
+        let day_adapter = day.translate_adapter(language);
+        if language == English {
+            write!(f, "{day_adapter}, {month_adapter}, {year_adapter}")
+        } else {
+            write!(f, "{year_adapter}{month_adapter}{day_adapter}")
+        }
+    }
+}
+
+impl ShortTranslate for ChineseDate {
+    fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        if self.chinese_day().get() == 1 {
+            self.chinese_month().short().translate(language, f)
+        } else {
+            self.chinese_day().translate(language, f)
+        }
     }
 }
 

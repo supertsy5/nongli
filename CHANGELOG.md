@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Made `Calendar` and `YearCalendar` limited
+- Updated translations
 
 ## [0.3.1] - 2024-12-25
 ### Fixed

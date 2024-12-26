@@ -4,28 +4,27 @@ use crate::data::{CHUNJIE, DATA};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChineseDate {
-    year: i32,
-    month: u8,
-    leap: bool,
-    day: u8,
+    year: ChineseYear,
+    month: ChineseMonth,
+    day: ChineseDay,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChineseYear(pub i32);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChineseMonth(pub u8, pub bool);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChineseDay(pub u8);
 
-pub fn data(year: i32) -> Option<u32> {
+fn data(year: i32) -> Option<u32> {
     (1900..=2100)
         .contains(&year)
         .then(|| DATA[year as usize - 1900])
 }
 
-pub fn short_or_long(year: i32) -> Option<u16> {
+fn short_or_long(year: i32) -> Option<u16> {
     data(year).map(|data| {
         let leap_month = data as u8 & 0x0f;
         (if leap_month > 0 {
@@ -60,8 +59,8 @@ pub fn is_long_month(year: i32, month: u8, leap: bool) -> Option<bool> {
     })
 }
 
-pub fn leap_month(year: i32) -> u8 {
-    match data(year) {
+pub fn leap_month(year: ChineseYear) -> u8 {
+    match data(year.0) {
         Some(data) => data as u8 & 0x0f,
         None => 0,
     }
@@ -69,12 +68,10 @@ pub fn leap_month(year: i32) -> u8 {
 
 impl ChineseDate {
     pub fn new(year: i32, month: u8, leap: bool, day: u8) -> Option<Self> {
-        let data = data(year)?;
-        (!leap || data as u8 & 0x0f == month).then_some(ChineseDate {
-            year,
-            month,
-            leap,
-            day,
+        Some(ChineseDate {
+            year: ChineseYear::new(year)?,
+            month: ChineseMonth::new(month, leap)?,
+            day: ChineseDay::new(day)?,
         })
     }
     pub fn from_gregorian(date: &impl chrono::Datelike) -> Option<Self> {
@@ -101,7 +98,7 @@ impl ChineseDate {
     pub fn from_ordinal(year: i32, ordinal: u16) -> Option<Self> {
         let mut month = 0u8;
         let mut day = ordinal;
-        let leap_month = leap_month(year);
+        let leap_month = leap_month(ChineseYear::new(year)?);
         let short_long = short_or_long(year)?;
         for i in 0..=12 {
             let days_of_month = (short_long >> (12 - i) & 1) + 29;
@@ -120,60 +117,55 @@ impl ChineseDate {
         } else {
             false
         };
-        Some(ChineseDate {
-            year,
-            month,
-            leap,
-            day: day as u8 + 1,
-        })
+        ChineseDate::new(year, month, leap, day as u8 + 1)
     }
     pub fn year(&self) -> i32 {
-        self.year
+        self.year.0
     }
     pub fn month(&self) -> u8 {
-        self.month
+        self.month.month()
     }
     pub fn leap(&self) -> bool {
-        self.leap
+        self.month.leap()
     }
     pub fn day(&self) -> u8 {
-        self.day
+        self.day.0
     }
     pub fn chinese_year(&self) -> ChineseYear {
-        ChineseYear(self.year)
+        self.year
     }
     pub fn chinese_month(&self) -> ChineseMonth {
-        ChineseMonth(self.month, self.leap)
+        self.month
     }
     pub fn chinese_day(&self) -> ChineseDay {
-        ChineseDay(self.day)
+        self.day
     }
     pub fn ordinal(&self) -> u16 {
         let mut ord = 0u16;
         let leap_month = leap_month(self.year);
-        let data = data(self.year).unwrap();
-        for i in 1..self.month {
+        let data = data(self.year.0).unwrap();
+        for i in 1..self.month.0 {
             ord += 29 + (data >> (16 - i) & 1) as u16;
             if i == leap_month {
                 ord += 29 + (data >> 16 & 1) as u16;
             }
         }
-        if self.leap {
-            ord += 29 + (data >> (16 - self.month) & 1) as u16;
+        if self.leap() {
+            ord += 29 + (data >> (16 - self.month.0) & 1) as u16;
         }
-        ord += self.day as u16 - 1;
+        ord += self.day.0 as u16 - 1;
         ord
     }
     pub fn to_gregorian(&self) -> NaiveDate {
         let mut ordinal = self.ordinal() + 1;
-        ordinal += CHUNJIE[self.year as usize - 1900] as u16;
-        let days_of_year = crate::days_of_year(self.year);
+        ordinal += CHUNJIE[self.year.0 as usize - 1900] as u16;
+        let days_of_year = crate::days_of_year(self.year.0);
         dbg!(ordinal);
         let year = if ordinal < days_of_year {
-            self.year
+            self.year.0
         } else {
             ordinal -= days_of_year;
-            self.year + 1
+            self.year.0 + 1
         };
         NaiveDate::from_yo_opt(year, ordinal as u32).unwrap()
     }

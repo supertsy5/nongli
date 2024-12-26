@@ -6,7 +6,7 @@ use nongli::{
     calendar::{Calendar, Options},
     cli_calendar::{ListCalendar, MonthCalendar, TripleCalendar, YearCalendar},
     iter::Months,
-    language::Language::*,
+    language::{Language::*, Translate}, ChineseDate,
 };
 
 fn cmd() -> Command {
@@ -43,6 +43,9 @@ fn cmd() -> Command {
         .arg(
             arg!(-m --month <month> "Month, in number (1-12)")
                 .value_parser(value_parser!(u8).range(1..=12)),
+        )
+        .arg(
+            arg!(-t --today "Show today in Chinese calendar")
         )
 }
 
@@ -102,6 +105,7 @@ fn main() {
     let landscape = matches.get_flag("landscape");
     let portrait = matches.get_flag("portrait");
     let list = matches.get_flag("list");
+    let show_today = matches.get_flag("today");
 
     let today = std::env::var("TODAY")
         .ok()
@@ -114,6 +118,15 @@ fn main() {
         start_on_monday,
         color,
     };
+
+    if show_today {
+        if let Some(chinese_date) = ChineseDate::from_gregorian(&today) {
+            println!("{}", chinese_date.translate_adapter(language));
+        } else {
+            println!("Today is out of the Chinese calendar range");
+        }
+        return;
+    }
 
     let year = matches.get_one::<i32>("year").copied();
     let month = matches
