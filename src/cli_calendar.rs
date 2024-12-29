@@ -1,4 +1,4 @@
-use anstyle::{AnsiColor, Color, Style};
+use anstyle::{AnsiColor, Color, Reset, Style};
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use chrono::{
@@ -11,9 +11,7 @@ use crate::{
     chinese_date::ChineseDate,
     days_of_month, is_weekend,
     iter::Weekdays,
-    language::{
-        Language::*, MonthTitle, ShortTranslate, StaticTranslate, Translate, YearTitle,
-    },
+    language::{Language::*, MonthTitle, ShortTranslate, StaticTranslate, Translate, YearTitle},
     SolarTerm,
 };
 
@@ -21,7 +19,7 @@ use Alignment::*;
 
 pub const CELL_WIDTH_WITH_CHINESE: usize = 6;
 pub const CELL_WIDTH_WITHOUT_CHINESE: usize = 4;
-pub const WHITE: Color = Color::Ansi(AnsiColor::White);
+pub const WHITE: Color = Color::Ansi(AnsiColor::BrightWhite);
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
 pub const NEW_MONTH_COLOR: Color = Color::Ansi(AnsiColor::Blue);
 pub const SOLAR_TERM_COLOR: Color = Color::Ansi(AnsiColor::Green);
@@ -139,6 +137,12 @@ impl<'a> Display for ZipByLine<'a> {
 
 impl Display for WeekLine {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if self.0.week_number {
+            if self.0.color {
+                print!("{}", Style::new().invert());
+            }
+            print!("    ");
+        }
         for weekday in Weekdays(if self.0.start_on_monday { Mon } else { Sun }).take(7) {
             let centered = Aligned(
                 weekday
@@ -196,7 +200,14 @@ impl Display for BasicMonthCalendar {
         let options = self.0.options;
         let cell_width = cell_width(&options);
         let mut lines = 0u8;
-        for line in self.0.iter() {
+        for (week, line) in self.0.iter() {
+            if self.0.options.week_number {
+                if self.0.options.color {
+                    write!(f, "{} {week:02} {}", Style::new().invert(), Reset)?;
+                } else {
+                    write!(f, "|{week:02}|")?;
+                }
+            }
             for cell in &line {
                 if let Some(cell) = cell {
                     if options.color {
@@ -290,12 +301,13 @@ impl Display for BasicMonthCalendar {
             lines += 1;
         }
         while lines < 6 {
-            for _ in 0..cell_width * 7 {
+            let spaces = cell_width * 7 + if self.0.options.week_number { 4 } else { 0 };
+            for _ in 0..spaces {
                 write!(f, " ")?;
             }
             writeln!(f)?;
             if options.enable_chinese {
-                for _ in 0..cell_width * 7 {
+                for _ in 0..spaces {
                     write!(f, " ")?;
                 }
                 writeln!(f)?;
@@ -315,7 +327,7 @@ impl Display for MonthCalendar {
             Aligned(
                 MonthTitle::from(self.0).translate_to_string(options.language),
                 Center,
-                cell_width(&options) * 7,
+                cell_width(&options) * 7 + if self.0.options.week_number { 4 } else { 0 },
             ),
             WeekLine(options),
             BasicMonthCalendar(self.0),
@@ -497,7 +509,7 @@ impl Display for TripleCalendar {
                     MonthTitle::from(calendar).translate_to_string(options.language)
                 }),
                 Center,
-                cell_width * 7,
+                cell_width * 7 + if self.0.options.week_number { 4 } else { 0 },
             )
         });
         write!(
@@ -531,7 +543,7 @@ impl Display for YearCalendar {
         let options = self.options;
         let language = options.language;
         let cell_width = cell_width(&options);
-        let month_width = cell_width * 7;
+        let month_width = cell_width * 7 + if self.options.week_number { 4 } else { 0 };
         writeln!(
             f,
             "{}",
@@ -543,9 +555,9 @@ impl Display for YearCalendar {
                 .translate_to_string(language),
                 Center,
                 if self.landscape {
-                    cell_width * 28 + 3
+                    month_width * 4 + 3
                 } else {
-                    cell_width * 21 + 2
+                    month_width * 3 + 2
                 },
             )
         )?;

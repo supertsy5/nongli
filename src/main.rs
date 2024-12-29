@@ -6,7 +6,8 @@ use nongli::{
     calendar::{Calendar, Options},
     cli_calendar::{ListCalendar, MonthCalendar, TripleCalendar, YearCalendar},
     iter::Months,
-    language::{Language::*, Translate}, ChineseDate,
+    language::{Language::*, Translate},
+    ChineseDate,
 };
 
 fn cmd() -> Command {
@@ -44,9 +45,8 @@ fn cmd() -> Command {
             arg!(-m --month <month> "Month, in number (1-12)")
                 .value_parser(value_parser!(u8).range(1..=12)),
         )
-        .arg(
-            arg!(-t --today "Show today in Chinese calendar")
-        )
+        .arg(arg!(-w --week "Show week numbers"))
+        .arg(arg!(-t --today "Show today in Chinese calendar"))
 }
 
 #[cfg(test)]
@@ -105,6 +105,7 @@ fn main() {
     let landscape = matches.get_flag("landscape");
     let portrait = matches.get_flag("portrait");
     let list = matches.get_flag("list");
+    let week_number = matches.get_flag("week");
     let show_today = matches.get_flag("today");
 
     let today = std::env::var("TODAY")
@@ -117,6 +118,7 @@ fn main() {
         enable_chinese,
         start_on_monday,
         color,
+        week_number,
     };
 
     if show_today {
