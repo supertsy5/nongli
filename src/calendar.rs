@@ -1,7 +1,5 @@
 use crate::{
-    is_weekend,
-    language::{Language, MonthTitle},
-    ChineseDate, SolarTerm,
+    festivals::Festival, is_weekend, language::{Language, MonthTitle}, ChineseDate, SolarTerm
 };
 use chrono::{Datelike, Month, NaiveDate, Weekday};
 
@@ -36,6 +34,7 @@ pub struct Cell {
     pub weekend: bool,
     pub chinese_date: Option<ChineseDate>,
     pub solar_term: Option<SolarTerm>,
+    pub festival: Option<Festival>,
 }
 
 impl Calendar {
@@ -110,13 +109,15 @@ impl Iterator for Iter<'_> {
         let mut array = [Option::<Cell>::None; 7];
         loop {
             let weekday = date.weekday();
-            let (chinese_date, solar_term) = if self.calendar.options.enable_chinese {
+            let (chinese_date, solar_term, festival) = if self.calendar.options.enable_chinese {
+                let chinese_date = ChineseDate::from_gregorian(&date);
                 (
-                    ChineseDate::from_gregorian(&date),
+                    chinese_date,
                     SolarTerm::from_date(&date),
+                    chinese_date.and_then(Festival::from_chinese_date)
                 )
             } else {
-                (None, None)
+                (None, None, None)
             };
             array[weekday.days_since(start_of_week) as usize] = Some(Cell {
                 date,
@@ -124,6 +125,7 @@ impl Iterator for Iter<'_> {
                 weekend: is_weekend(date.weekday()),
                 chinese_date,
                 solar_term,
+                festival,
             });
             self.day += 1;
             date = if let Some(date) = date
@@ -183,12 +185,14 @@ fn test() {
     let mut array = [Option::<Cell>::None; 35];
     for day in 1u32..=31 {
         let date = NaiveDate::from_ymd_opt(2025, 1, day).unwrap();
+        let chinese_date = ChineseDate::from_gregorian(&date);
         array[day as usize + 2] = Some(Cell {
             date,
             weekend: is_weekend(date.weekday()),
             today: day == 1,
-            chinese_date: ChineseDate::from_gregorian(&date),
+            chinese_date,
             solar_term: SolarTerm::from_date(&date),
+            festival: chinese_date.and_then(Festival::from_chinese_date),
         });
     }
     for (a, b) in calendar.iter().zip(
