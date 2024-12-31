@@ -24,8 +24,8 @@ fn data(year: i32) -> Option<u32> {
         .then(|| DATA[year as usize - 1900])
 }
 
-fn short_or_long(year: i32) -> Option<u16> {
-    data(year).map(|data| {
+fn short_or_long(year: ChineseYear) -> Option<u16> {
+    data(year.get()).map(|data| {
         let leap_month = data as u8 & 0x0f;
         (if leap_month > 0 {
             (data >> 3) & !((1 << (13 - leap_month)) - 1) // Months before the leap month
@@ -37,26 +37,30 @@ fn short_or_long(year: i32) -> Option<u16> {
     })
 }
 
-pub fn ordinal_month(year: i32, month: u8, leap: bool) -> Option<u8> {
-    let data = data(year)?;
-    if !(1..=12).contains(&month) {
-        return None;
-    }
+pub fn ordinal_month(year: ChineseYear, month: ChineseMonth) -> Option<u8> {
+    let data = data(year.get()).unwrap();
     let leap_month = data as u8 & 0x0f;
-    if leap && month != leap_month {
+    if month.leap() && month.month() != leap_month {
         return None;
     }
-    Some(if leap_month > 0 && month >= leap_month {
-        month
-    } else {
-        month - 1
+    Some(
+        month.month()
+            - if leap_month > 0 && month.month() >= leap_month {
+                0
+            } else {
+                1
+            },
+    )
+}
+
+pub fn is_long_month(year: ChineseYear, month: ChineseMonth) -> Option<bool> {
+    ordinal_month(year, month).and_then(|ord_month| {
+        short_or_long(year).map(|short_long| short_long >> (12 - ord_month) & 1 > 0)
     })
 }
 
-pub fn is_long_month(year: i32, month: u8, leap: bool) -> Option<bool> {
-    ordinal_month(year, month, leap).and_then(|ord_month| {
-        short_or_long(year).map(|short_long| short_long >> (12 - ord_month) & 1 > 0)
-    })
+pub fn days_of_chinese_month(year: ChineseYear, month: ChineseMonth) -> Option<u8> {
+    is_long_month(year, month).map(|long| if long { 30 } else { 29 })
 }
 
 pub fn leap_month(year: ChineseYear) -> u8 {
@@ -93,12 +97,12 @@ impl ChineseDate {
             return None;
         } as u16;
 
-        Self::from_ordinal(year, chinese_ordinal)
+        Self::from_ordinal(ChineseYear::new(year)?, chinese_ordinal)
     }
-    pub fn from_ordinal(year: i32, ordinal: u16) -> Option<Self> {
+    pub fn from_ordinal(year: ChineseYear, ordinal: u16) -> Option<Self> {
         let mut month = 0u8;
         let mut day = ordinal;
-        let leap_month = leap_month(ChineseYear::new(year)?);
+        let leap_month = leap_month(year);
         let short_long = short_or_long(year)?;
         for i in 0..=12 {
             let days_of_month = (short_long >> (12 - i) & 1) + 29;
@@ -117,7 +121,7 @@ impl ChineseDate {
         } else {
             false
         };
-        ChineseDate::new(year, month, leap, day as u8 + 1)
+        ChineseDate::new(year.get(), month, leap, day as u8 + 1)
     }
     pub fn year(&self) -> i32 {
         self.year.0

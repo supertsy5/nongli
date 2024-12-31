@@ -22,6 +22,7 @@ pub mod chinese_date;
 #[cfg(feature = "cli")]
 pub mod cli_calendar;
 pub mod data;
+pub mod festivals;
 pub mod iter;
 pub mod language;
 pub mod solar_term;
