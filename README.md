@@ -9,11 +9,11 @@ Note: This project is in early development and not guaranteed to run on every pl
 Bug reports are welcome.
 ## Install (as an executable)
 ```sh
-cargo install nongli
+cargo install nongli --features=clap,cli
 ```
 or
 ```sh
-cargo install --git https://github.com/supertsy5/nongli
+cargo install --git https://github.com/supertsy5/nongli --features=clap,cli
 ```
 ## As a library
 Talk is cheap, let me show the code.
