@@ -1,6 +1,6 @@
 use crate::{
     chinese_date::days_of_chinese_month,
-    language::{Language, StaticTranslate, Translate},
+    language::{Language, ShortTranslate, StaticTranslate, Translate},
     ChineseDate,
 };
 use std::fmt::{Display, Formatter, Result as FmtResult};
@@ -26,6 +26,7 @@ impl Festival {
         match date.month() {
             1 => match date.day() {
                 1 => Some(Chunjie),
+                15 => Some(Yuanxiaojie),
                 _ => None,
             },
             5 => (date.day() == 5).then_some(Duanwujie),
@@ -81,5 +82,24 @@ impl StaticTranslate for Festival {
 impl Translate for Festival {
     fn translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
         self.static_translate(language).fmt(f)
+    }
+}
+
+impl ShortTranslate for Festival {
+    fn short_translate(&self, language: Language, f: &mut Formatter) -> FmtResult {
+        let translation = self.static_translate(language);
+        if language == Language::English {
+            if translation.len() > 6 {
+                write!(f, "{}.", &translation[..5])
+            } else {
+                translation.fmt(f)
+            }
+        } else {
+            if translation.len() > 9 {
+                write!(f, "{}..", &translation[..6])
+            } else {
+                translation.fmt(f)
+            }
+        }
     }
 }

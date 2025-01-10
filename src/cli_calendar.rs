@@ -9,7 +9,9 @@ use chrono::{
 use crate::{
     calendar::{Calendar, Options},
     chinese_date::ChineseDate,
-    days_of_month, is_weekend,
+    days_of_month,
+    festivals::Festival,
+    is_weekend,
     iter::Weekdays,
     language::{Language::*, MonthTitle, ShortTranslate, StaticTranslate, Translate, YearTitle},
     SolarTerm,
@@ -21,6 +23,7 @@ pub const CELL_WIDTH_WITH_CHINESE: usize = 6;
 pub const CELL_WIDTH_WITHOUT_CHINESE: usize = 4;
 pub const WHITE: Color = Color::Ansi(AnsiColor::BrightWhite);
 pub const WEEKEND_COLOR: Color = Color::Ansi(AnsiColor::Red);
+pub const FESTIVAL_COLOR: Color = Color::Ansi(AnsiColor::Red);
 pub const NEW_MONTH_COLOR: Color = Color::Ansi(AnsiColor::Blue);
 pub const SOLAR_TERM_COLOR: Color = Color::Ansi(AnsiColor::Green);
 
@@ -253,7 +256,12 @@ impl Display for BasicMonthCalendar {
                         let (string, color) = cell
                             .chinese_date
                             .map(|ch_date| {
-                                if let Some(solar_term) = cell.solar_term {
+                                if let Some(festival) = cell.festival {
+                                    (
+                                        festival.short().translate_to_string(language),
+                                        Some(FESTIVAL_COLOR),
+                                    )
+                                } else if let Some(solar_term) = cell.solar_term {
                                     (
                                         solar_term.short().translate_to_string(language),
                                         Some(SOLAR_TERM_COLOR),
@@ -422,6 +430,23 @@ impl Display for ListCalendar {
                             )
                         )
                     }?;
+                    if let Some(festival) = Festival::from_chinese_date(chinese_date) {
+                        if options.color {
+                            if is_today {
+                                style = Style::new()
+                                    .bg_color(Some(WHITE))
+                                    .fg_color(Some(FESTIVAL_COLOR))
+                            } else {
+                                style = style.fg_color(Some(FESTIVAL_COLOR))
+                            }
+                        }
+                        write!(f, "  {}{}", style.render_reset(), style.render())?;
+                        if language == English {
+                            write!(f, "{:12}", festival.static_translate(language))
+                        } else {
+                            festival.translate(language, f)
+                        }?;
+                    }
                 }
                 if let Some(solar_term) = SolarTerm::from_date(&date) {
                     if options.color {
